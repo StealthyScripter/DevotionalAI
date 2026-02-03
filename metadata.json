@@ -1,0 +1,7 @@
+{
+  "name": "DevotionalAI",
+  "description": "An AI-powered spiritual companion and Christian content creator. Generate uplifting, scripture-based daily messages, sermons, and social media scripts to inspire hope and faith.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
