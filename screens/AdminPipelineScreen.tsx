@@ -1,11 +1,11 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { GeneratedContent, Role, PipelineStatus, Format, Theme, CalendarEntry, PipelineItem, ContentTemplate, Length, Audience, Style } from '../types';
+import { GeneratedContent, Role, PipelineStatus, Format, Theme, CalendarEntry, PipelineItem, ContentTemplate, Length, Audience, Style, User } from '../types';
 import { authService } from '../authService';
 import { generateDevotional } from '../geminiService';
 import { useNavigate } from 'react-router-dom';
 
-type AdminTab = 'studio' | 'scheduler' | 'pipeline' | 'templates' | 'distribution';
+type AdminTab = 'studio' | 'scheduler' | 'pipeline' | 'users' | 'distribution';
 
 const themeIcons: Record<Theme, string> = {
   [Theme.Hope]: 'brightness_5',
@@ -24,6 +24,7 @@ const AdminPipelineScreen: React.FC<{ onRefine: (c: GeneratedContent) => void }>
   const [loading, setLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('');
   const [loadingSubMessage, setLoadingSubMessage] = useState('');
+  const [users, setUsers] = useState<User[]>([]);
   const session = authService.getSession();
 
   // Studio State
@@ -53,6 +54,7 @@ const AdminPipelineScreen: React.FC<{ onRefine: (c: GeneratedContent) => void }>
     if (!session || session.user.role !== Role.Admin) {
       navigate('/home');
     }
+    setUsers(authService.getUsers());
   }, [session, navigate]);
 
   const handleStudioGenerate = async () => {
@@ -102,6 +104,12 @@ const AdminPipelineScreen: React.FC<{ onRefine: (c: GeneratedContent) => void }>
     } finally {
       setLoading(false);
     }
+  };
+
+  const toggleUserRole = (user: User) => {
+    const newRole = user.role === Role.Admin ? Role.User : Role.Admin;
+    authService.updateUserRole(user.id, newRole);
+    setUsers(authService.getUsers());
   };
 
   const approveItem = (id: string) => {
@@ -156,7 +164,7 @@ const AdminPipelineScreen: React.FC<{ onRefine: (c: GeneratedContent) => void }>
           { id: 'studio', label: 'Studio', icon: 'auto_fix' },
           { id: 'scheduler', label: 'Scheduler', icon: 'calendar_month' },
           { id: 'pipeline', label: 'Review', icon: 'playlist_add_check' },
-          { id: 'templates', label: 'AI Sets', icon: 'description' },
+          { id: 'users', label: 'Users', icon: 'group' },
           { id: 'distribution', label: 'Published', icon: 'share' }
         ].map(tab => (
           <button
@@ -224,6 +232,54 @@ const AdminPipelineScreen: React.FC<{ onRefine: (c: GeneratedContent) => void }>
               >
                 {loading ? <span className="animate-spin material-symbols-outlined">sync</span> : 'Trigger Studio Logic'}
               </button>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'users' && (
+          <div className="space-y-8 animate-in fade-in duration-500">
+            <div className="flex flex-col gap-1 px-1">
+              <h3 className="text-white font-bold text-2xl tracking-tight">Identity Registry</h3>
+              <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.2em]">Manage Administrator Privileges</p>
+            </div>
+
+            <div className="bg-surface-dark border border-white/5 rounded-2xl overflow-hidden shadow-2xl">
+              <table className="w-full text-left">
+                <thead className="bg-white/5 border-b border-white/5">
+                  <tr>
+                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">User Email</th>
+                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Role</th>
+                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {users.map((u) => (
+                    <tr key={u.id} className="hover:bg-white/[0.02] transition-colors">
+                      <td className="px-6 py-4">
+                        <div className="flex flex-col">
+                          <span className="text-sm font-bold text-white">{u.email}</span>
+                          <span className="text-[8px] text-slate-500 uppercase tracking-widest">Joined {new Date(u.createdAt).toLocaleDateString()}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-lg tracking-widest border ${u.role === Role.Admin ? 'bg-primary/10 text-primary border-primary/20' : 'bg-slate-500/10 text-slate-500 border-slate-500/20'}`}>
+                          {u.role}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        {u.email !== 'admin@devotional.ai' && (
+                           <button 
+                            onClick={() => toggleUserRole(u)}
+                            className="text-[10px] font-black uppercase text-primary hover:underline transition-all"
+                          >
+                            Set to {u.role === Role.Admin ? 'User' : 'Admin'}
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         )}

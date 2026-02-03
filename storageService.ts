@@ -7,7 +7,13 @@ const DRAFTS_KEY = 'devotional_ai_drafts';
 export const storageService = {
   saveDevotional: (content: GeneratedContent) => {
     const saved = storageService.getSavedDevotionals();
-    const exists = saved.find(s => s.title === content.title && s.bibleVerse === content.bibleVerse);
+    
+    // Integrity Check: Use composite key (Title + Verse) to identify uniqueness
+    const exists = saved.find(s => 
+      s.title.toLowerCase().trim() === content.title.toLowerCase().trim() && 
+      s.bibleVerse.toLowerCase().trim() === content.bibleVerse.toLowerCase().trim()
+    );
+    
     if (!exists) {
       const updated = [content, ...saved];
       localStorage.setItem(SAVED_KEY, JSON.stringify(updated));
@@ -27,8 +33,17 @@ export const storageService = {
 
   saveDraft: (content: GeneratedContent) => {
     const drafts = storageService.getDrafts();
-    const updated = [content, ...drafts];
-    localStorage.setItem(DRAFTS_KEY, JSON.stringify(updated));
+    
+    // Integrity check for drafts as well
+    const exists = drafts.find(s => 
+      s.title.toLowerCase().trim() === content.title.toLowerCase().trim() && 
+      s.bibleVerse.toLowerCase().trim() === content.bibleVerse.toLowerCase().trim()
+    );
+    
+    if (!exists) {
+      const updated = [content, ...drafts];
+      localStorage.setItem(DRAFTS_KEY, JSON.stringify(updated));
+    }
   },
 
   getDrafts: (): GeneratedContent[] => {
@@ -38,6 +53,9 @@ export const storageService = {
 
   isSaved: (content: GeneratedContent): boolean => {
     const saved = storageService.getSavedDevotionals();
-    return saved.some(s => s.title === content.title && s.bibleVerse === content.bibleVerse);
+    return saved.some(s => 
+      s.title.toLowerCase().trim() === content.title.toLowerCase().trim() && 
+      s.bibleVerse.toLowerCase().trim() === content.bibleVerse.toLowerCase().trim()
+    );
   }
 };

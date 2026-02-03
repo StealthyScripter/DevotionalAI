@@ -3,20 +3,43 @@ import { User, Role, AuthSession } from './types';
 
 const USERS_KEY = 'devotional_auth_users';
 const SESSION_KEY = 'devotional_auth_session';
-const ADMIN_WHITELIST = ['admin@devotional.ai', 'pastor@devotional.ai'];
+
+// Master Admin Configuration
+const MASTER_ADMIN_EMAIL = 'admin@devotional.ai';
+const MASTER_ADMIN_PASSWORD_PLAIN = 'Devotional@2025&Home';
 
 // Mock hashing
 const hashPassword = (password: string) => btoa(`salt_${password}_divine`);
 
+const MASTER_ADMIN_HASH = hashPassword(MASTER_ADMIN_PASSWORD_PLAIN);
+
 export const authService = {
   getUsers: (): User[] => {
     const data = localStorage.getItem(USERS_KEY);
-    return data ? JSON.parse(data) : [];
+    let users: User[] = data ? JSON.parse(data) : [];
+    
+    // Ensure master admin exists in the list if not already there
+    if (!users.find(u => u.email.toLowerCase() === MASTER_ADMIN_EMAIL.toLowerCase())) {
+      const master: User = {
+        id: 'master-root-001',
+        email: MASTER_ADMIN_EMAIL,
+        passwordHash: MASTER_ADMIN_HASH,
+        role: Role.Admin,
+        isVerified: true,
+        is2FAEnabled: true,
+        createdAt: Date.now()
+      };
+      users.push(master);
+      localStorage.setItem(USERS_KEY, JSON.stringify(users));
+    }
+    return users;
   },
 
   signUp: async (email: string, password: string): Promise<{ success: boolean; message: string }> => {
     const users = authService.getUsers();
-    if (users.find(u => u.email === email)) {
+    
+    // Integrity Check: Case-insensitive duplicate prevention
+    if (users.find(u => u.email.toLowerCase() === email.toLowerCase())) {
       return { success: false, message: 'An account with this email already exists.' };
     }
 
@@ -24,7 +47,7 @@ export const authService = {
       id: Math.random().toString(36).substr(2, 9),
       email,
       passwordHash: hashPassword(password),
-      role: ADMIN_WHITELIST.includes(email.toLowerCase()) ? Role.Admin : Role.User,
+      role: Role.User, // Default is always User
       isVerified: false,
       is2FAEnabled: true,
       createdAt: Date.now()
@@ -40,7 +63,9 @@ export const authService = {
 
   signIn: async (email: string, password: string): Promise<{ success: boolean; user?: User; message?: string; requires2FA?: boolean }> => {
     const users = authService.getUsers();
-    const user = users.find(u => u.email === email && u.passwordHash === hashPassword(password));
+    
+    // Special check for Master Admin bypass or standard lookup
+    const user = users.find(u => u.email.toLowerCase() === email.toLowerCase() && u.passwordHash === hashPassword(password));
 
     if (!user) {
       return { success: false, message: 'Invalid email or password.' };
@@ -62,6 +87,22 @@ export const authService = {
     return { success: true, user };
   },
 
+  updateUserRole: (userId: string, newRole: Role) => {
+    const currentUser = authService.getSession()?.user;
+    // Only admins can promote/demote
+    if (!currentUser || currentUser.role !== Role.Admin) return;
+
+    const users = authService.getUsers();
+    const updatedUsers = users.map(u => {
+      // Prevent demoting the master admin for safety
+      if (u.id === userId && u.email !== MASTER_ADMIN_EMAIL) {
+        return { ...u, role: newRole };
+      }
+      return u;
+    });
+    localStorage.setItem(USERS_KEY, JSON.stringify(updatedUsers));
+  },
+
   verify2FA: async (code: string): Promise<{ success: boolean; user?: User; message?: string }> => {
     const correctCode = sessionStorage.getItem('temp_2fa_code');
     const userJson = sessionStorage.getItem('temp_2fa_user');
@@ -79,7 +120,7 @@ export const authService = {
 
   verifyEmail: async (email: string): Promise<boolean> => {
     const users = authService.getUsers();
-    const index = users.findIndex(u => u.email === email);
+    const index = users.findIndex(u => u.email.toLowerCase() === email.toLowerCase());
     if (index !== -1) {
       users[index].isVerified = true;
       localStorage.setItem(USERS_KEY, JSON.stringify(users));
