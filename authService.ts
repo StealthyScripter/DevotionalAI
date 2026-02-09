@@ -1,16 +1,15 @@
 
 import { User, Role, AuthSession } from './types';
+import { storageService } from './storageService';
 
 const USERS_KEY = 'devotional_auth_users';
 const SESSION_KEY = 'devotional_auth_session';
 
-// Master Admin Configuration
-const MASTER_ADMIN_EMAIL = 'admin@devotional.ai';
+export const MASTER_ADMIN_EMAIL = 'admin@devotional.ai';
 const MASTER_ADMIN_PASSWORD_PLAIN = 'Devotional@2025&Home';
+const FORWARD_EMAIL = 'koringobrian@gmail.com';
 
-// Mock hashing
 const hashPassword = (password: string) => btoa(`salt_${password}_divine`);
-
 const MASTER_ADMIN_HASH = hashPassword(MASTER_ADMIN_PASSWORD_PLAIN);
 
 export const authService = {
@@ -18,8 +17,9 @@ export const authService = {
     const data = localStorage.getItem(USERS_KEY);
     let users: User[] = data ? JSON.parse(data) : [];
     
-    // Ensure master admin exists in the list if not already there
-    if (!users.find(u => u.email.toLowerCase() === MASTER_ADMIN_EMAIL.toLowerCase())) {
+    const adminIndex = users.findIndex(u => u.email.toLowerCase() === MASTER_ADMIN_EMAIL.toLowerCase());
+    
+    if (adminIndex === -1) {
       const master: User = {
         id: 'master-root-001',
         email: MASTER_ADMIN_EMAIL,
@@ -27,18 +27,28 @@ export const authService = {
         role: Role.Admin,
         isVerified: true,
         is2FAEnabled: true,
+        acceptedTermsAt: Date.now(),
         createdAt: Date.now()
       };
       users.push(master);
       localStorage.setItem(USERS_KEY, JSON.stringify(users));
+    } else {
+      if (users[adminIndex].passwordHash !== MASTER_ADMIN_HASH) {
+        users[adminIndex].passwordHash = MASTER_ADMIN_HASH;
+        users[adminIndex].role = Role.Admin;
+        localStorage.setItem(USERS_KEY, JSON.stringify(users));
+      }
     }
     return users;
   },
 
   signUp: async (email: string, password: string): Promise<{ success: boolean; message: string }> => {
+    const blacklist = storageService.getBlacklist();
+    if (blacklist.includes(email.toLowerCase())) {
+      return { success: false, message: 'This identity has been cast out from the tabernacle.' };
+    }
+
     const users = authService.getUsers();
-    
-    // Integrity Check: Case-insensitive duplicate prevention
     if (users.find(u => u.email.toLowerCase() === email.toLowerCase())) {
       return { success: false, message: 'An account with this email already exists.' };
     }
@@ -47,39 +57,35 @@ export const authService = {
       id: Math.random().toString(36).substr(2, 9),
       email,
       passwordHash: hashPassword(password),
-      role: Role.User, // Default is always User
+      role: Role.User,
       isVerified: false,
       is2FAEnabled: true,
+      acceptedTermsAt: Date.now(),
       createdAt: Date.now()
     };
 
     localStorage.setItem(USERS_KEY, JSON.stringify([...users, newUser]));
-    
-    // Simulate sending verification email
-    console.log(`[SIMULATED EMAIL] To: ${email} | Subject: Verify Your DevotionalAI Account | Code: VERIFY-777`);
-    
+    console.log(`[SYSTEM] Account Verification: Code VERIFY-777 sent to ${email} (Forwarded to: ${FORWARD_EMAIL})`);
     return { success: true, message: 'Account created. Please verify your email.' };
   },
 
   signIn: async (email: string, password: string): Promise<{ success: boolean; user?: User; message?: string; requires2FA?: boolean }> => {
+    const blacklist = storageService.getBlacklist();
+    if (blacklist.includes(email.toLowerCase())) {
+      return { success: false, message: 'This identity is blacklisted.' };
+    }
+
     const users = authService.getUsers();
-    
-    // Special check for Master Admin bypass or standard lookup
     const user = users.find(u => u.email.toLowerCase() === email.toLowerCase() && u.passwordHash === hashPassword(password));
 
-    if (!user) {
-      return { success: false, message: 'Invalid email or password.' };
-    }
-
-    if (!user.isVerified) {
-      return { success: false, message: 'Please verify your email address before logging in.' };
-    }
+    if (!user) return { success: false, message: 'Invalid email or password.' };
+    if (!user.isVerified) return { success: false, message: 'Please verify your email address.' };
 
     if (user.is2FAEnabled) {
       const code = Math.floor(100000 + Math.random() * 900000).toString();
       sessionStorage.setItem('temp_2fa_code', code);
       sessionStorage.setItem('temp_2fa_user', JSON.stringify(user));
-      console.log(`[SIMULATED SMS/EMAIL] To: ${email} | Your 2FA Login Code: ${code}`);
+      console.log(`[2FA] Login code for ${email}: ${code} (Forwarded to: ${FORWARD_EMAIL})`);
       return { success: true, requires2FA: true };
     }
 
@@ -87,54 +93,35 @@ export const authService = {
     return { success: true, user };
   },
 
-  updateUserRole: (userId: string, newRole: Role) => {
-    const currentUser = authService.getSession()?.user;
-    // Only admins can promote/demote
-    if (!currentUser || currentUser.role !== Role.Admin) return;
-
+  verifyEmail: async (email: string) => {
     const users = authService.getUsers();
-    const updatedUsers = users.map(u => {
-      // Prevent demoting the master admin for safety
-      if (u.id === userId && u.email !== MASTER_ADMIN_EMAIL) {
-        return { ...u, role: newRole };
-      }
-      return u;
-    });
+    const updatedUsers = users.map(u => u.email.toLowerCase() === email.toLowerCase() ? { ...u, isVerified: true } : u);
+    localStorage.setItem(USERS_KEY, JSON.stringify(updatedUsers));
+    return true;
+  },
+
+  verify2FA: async (code: string): Promise<{ success: boolean; message?: string }> => {
+    const storedCode = sessionStorage.getItem('temp_2fa_code');
+    const storedUser = sessionStorage.getItem('temp_2fa_user');
+    if (!storedCode || !storedUser) return { success: false, message: 'Session expired.' };
+
+    if (code === storedCode) {
+      authService.createSession(JSON.parse(storedUser));
+      sessionStorage.removeItem('temp_2fa_code');
+      sessionStorage.removeItem('temp_2fa_user');
+      return { success: true };
+    }
+    return { success: false, message: 'Invalid code.' };
+  },
+
+  updateUserRole: (userId: string, newRole: Role) => {
+    const users = authService.getUsers();
+    const updatedUsers = users.map(u => (u.id === userId && u.email !== MASTER_ADMIN_EMAIL) ? { ...u, role: newRole } : u);
     localStorage.setItem(USERS_KEY, JSON.stringify(updatedUsers));
   },
 
-  verify2FA: async (code: string): Promise<{ success: boolean; user?: User; message?: string }> => {
-    const correctCode = sessionStorage.getItem('temp_2fa_code');
-    const userJson = sessionStorage.getItem('temp_2fa_user');
-
-    if (code === correctCode && userJson) {
-      const user = JSON.parse(userJson);
-      authService.createSession(user);
-      sessionStorage.removeItem('temp_2fa_code');
-      sessionStorage.removeItem('temp_2fa_user');
-      return { success: true, user };
-    }
-
-    return { success: false, message: 'Invalid or expired 2FA code.' };
-  },
-
-  verifyEmail: async (email: string): Promise<boolean> => {
-    const users = authService.getUsers();
-    const index = users.findIndex(u => u.email.toLowerCase() === email.toLowerCase());
-    if (index !== -1) {
-      users[index].isVerified = true;
-      localStorage.setItem(USERS_KEY, JSON.stringify(users));
-      return true;
-    }
-    return false;
-  },
-
   createSession: (user: User) => {
-    const session: AuthSession = {
-      user,
-      token: `jwt_${Math.random().toString(36)}`,
-      expiresAt: Date.now() + 86400000 // 24 hours
-    };
+    const session: AuthSession = { user, token: `jwt_${Math.random().toString(36)}`, expiresAt: Date.now() + 86400000 };
     localStorage.setItem(SESSION_KEY, JSON.stringify(session));
   },
 
@@ -149,12 +136,10 @@ export const authService = {
     return session;
   },
 
-  logout: () => {
-    localStorage.removeItem(SESSION_KEY);
-  },
+  logout: () => localStorage.removeItem(SESSION_KEY),
 
   resetPasswordRequest: async (email: string) => {
-    console.log(`[SIMULATED EMAIL] To: ${email} | Subject: Password Reset Request | Link: devotional.ai/reset?token=xyz`);
-    return true; // Always return true to prevent enumeration
+    console.log(`[RESET] Password reset link for ${email} (Forwarded to: ${FORWARD_EMAIL})`);
+    return true;
   }
 };

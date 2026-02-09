@@ -17,6 +17,10 @@ const themeIcons: Record<Theme, string> = {
   [Theme.Wisdom]: 'menu_book',
   [Theme.Strength]: 'bolt',
   [Theme.Love]: 'favorite',
+  [Theme.BibleStories]: 'auto_stories',
+  [Theme.Teaching]: 'school',
+  [Theme.Family]: 'family_restroom',
+  [Theme.Tribulation]: 'tsunami',
 };
 
 const GenerateScreen: React.FC<Props> = ({ onGenerate }) => {
@@ -30,6 +34,7 @@ const GenerateScreen: React.FC<Props> = ({ onGenerate }) => {
   const [length, setLength] = useState<Length>(Length.Short);
   const [audience, setAudience] = useState<Audience>(Audience.Adults);
   const [style, setStyle] = useState<Style>(Style.Inspirational);
+  const [customInstruction, setCustomInstruction] = useState('');
   const [showValidation, setShowValidation] = useState(false);
 
   const step1Ref = useRef<HTMLDivElement>(null);
@@ -71,7 +76,7 @@ const GenerateScreen: React.FC<Props> = ({ onGenerate }) => {
     setLoading(true);
 
     try {
-      const content = await generateDevotional(theme, verse, format as Format, length, audience, style);
+      const content = await generateDevotional(theme, verse, format as Format, length, audience, style, customInstruction);
       setProgress(100);
       setTimeout(() => onGenerate(content), 500);
     } catch (err) {
@@ -173,11 +178,27 @@ const GenerateScreen: React.FC<Props> = ({ onGenerate }) => {
           </div>
         </section>
 
-        {/* Optional Context */}
+        {/* Custom Prompt */}
         <section className="space-y-6">
           <div className="flex items-center gap-3 px-1">
             <span className="text-[10px] font-black bg-slate-800 text-slate-500 size-6 rounded-full flex items-center justify-center border border-white/5">3</span>
-            <h3 className="text-white font-bold text-lg">Scripture & Voice</h3>
+            <h3 className="text-white font-bold text-lg">Personalize Output</h3>
+          </div>
+          <div className="space-y-4">
+            <textarea 
+              value={customInstruction}
+              onChange={(e) => setCustomInstruction(e.target.value)}
+              className="w-full px-6 py-5 bg-surface-dark border-white/5 border rounded-2xl text-sm focus:ring-2 focus:ring-primary text-white outline-none transition-all hover:border-white/20 min-h-[120px]" 
+              placeholder="Any specific requests for this devotional? (e.g. 'Focus on new beginnings' or 'Include a short prayer')" 
+            />
+          </div>
+        </section>
+
+        {/* Optional Context */}
+        <section className="space-y-6">
+          <div className="flex items-center gap-3 px-1">
+            <span className="text-[10px] font-black bg-slate-800 text-slate-500 size-6 rounded-full flex items-center justify-center border border-white/5">4</span>
+            <h3 className="text-white font-bold text-lg">Scripture & Style</h3>
           </div>
           <div className="space-y-4">
             <div className="relative group">

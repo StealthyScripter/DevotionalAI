@@ -12,13 +12,19 @@ export enum Theme {
   Healing = 'Healing',
   Wisdom = 'Wisdom',
   Strength = 'Strength',
-  Love = 'Love'
+  Love = 'Love',
+  BibleStories = 'Bible Stories',
+  Teaching = 'Teaching',
+  Family = 'Family',
+  Tribulation = 'Tribulation'
 }
 
 export enum Format {
   SMS = 'SMS Message',
   Email = 'Email Newsletter',
   SocialPost = 'Social Media Post',
+  SermonMini = 'Mini-Sermon',
+  SermonLong = 'Full-Length Sermon',
   SermonNotes = 'Sermon Notes',
   VideoScript = 'Video Script',
   ImagePrompt = 'Image Concept'
@@ -31,12 +37,6 @@ export enum PipelineStatus {
   Approved = 'Approved',
   Posted = 'Posted',
   Failed = 'Failed'
-}
-
-export interface ContentTemplate {
-  format: Format;
-  systemInstruction: string;
-  tone: string;
 }
 
 export interface CalendarEntry {
@@ -54,7 +54,6 @@ export interface PipelineItem {
   content: GeneratedContent;
   status: PipelineStatus;
   postedAt?: number;
-  platforms?: string[];
 }
 
 export enum Audience {
@@ -72,9 +71,9 @@ export enum Style {
 }
 
 export enum Length {
-  Short = 'Short (100 words)',
-  Medium = 'Medium (300 words)',
-  Long = 'Long (500+ words)'
+  Short = 'Short',
+  Medium = 'Medium',
+  Long = 'Long'
 }
 
 export interface User {
@@ -84,6 +83,8 @@ export interface User {
   role: Role;
   isVerified: boolean;
   is2FAEnabled: boolean;
+  isBlacklisted?: boolean;
+  acceptedTermsAt: number;
   createdAt: number;
 }
 
@@ -93,14 +94,6 @@ export interface AuthSession {
   expiresAt: number;
 }
 
-export interface VideoScript {
-  hook: string;
-  body: string;
-  cta: string;
-  visuals: string;
-  audio: string;
-}
-
 export interface GeneratedContent {
   title: string;
   bibleVerse: string;
@@ -108,7 +101,9 @@ export interface GeneratedContent {
   practicalApplication: string;
   callToAction: string;
   hashtags?: string[];
-  videoScript?: VideoScript;
+  imageUrl?: string;
+  videoUrl?: string;
+  format?: Format;
 }
 
 export interface ChatMessage {
