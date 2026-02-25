@@ -51,6 +51,7 @@ export interface PipelineItem {
   id: string;
   calendarId: string;
   format: Format;
+  theme?: Theme;
   content: GeneratedContent;
   status: PipelineStatus;
   postedAt?: number;
@@ -103,11 +104,32 @@ export interface GeneratedContent {
   hashtags?: string[];
   imageUrl?: string;
   videoUrl?: string;
+  videoScript?: string;
   format?: Format;
+}
+
+export interface PublishedContent extends GeneratedContent {
+  id: string;
+  publishedAt: number;
+  source?: 'pipeline' | 'ai_center' | 'media_lab' | 'manual';
 }
 
 export interface ChatMessage {
   role: 'user' | 'model';
   text: string;
   timestamp: number;
+}
+
+export interface AuditLogEntry {
+  id: string;
+  at: number;
+  actorId: string;
+  actorEmail: string;
+  action: 'role_changed' | 'blacklist_added' | 'blacklist_removed' | 'published_created' | 'published_deleted' | string;
+  entityType?: string;
+  entityId?: string;
+  target?: string;
+  source?: string;
+  previousRole?: string;
+  newRole?: string;
 }

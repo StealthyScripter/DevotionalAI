@@ -25,10 +25,13 @@ const ProfileScreen: React.FC<Props> = ({ onSelectSaved }) => {
 
   const [prayers, setPrayers] = useState<PrayerEntry[]>([]);
   const [newEntryId, setNewEntryId] = useState<number | null>(null);
-  const streakCount = 14;
 
   useEffect(() => {
-    setSavedItems(storageService.getSavedDevotionals());
+    void storageService.syncData().finally(() => {
+      setSavedItems(storageService.getSavedDevotionals());
+    });
+    const onSync = () => setSavedItems(storageService.getSavedDevotionals());
+    window.addEventListener('devotional:data-sync', onSync);
     const storedPrayers = localStorage.getItem('devotional_journal');
     if (storedPrayers) {
       setPrayers(JSON.parse(storedPrayers));
@@ -40,6 +43,9 @@ const ProfileScreen: React.FC<Props> = ({ onSelectSaved }) => {
       setPrayers(initial);
       localStorage.setItem('devotional_journal', JSON.stringify(initial));
     }
+    return () => {
+      window.removeEventListener('devotional:data-sync', onSync);
+    };
   }, []);
 
   const showToast = (message: string) => {
@@ -92,25 +98,6 @@ const ProfileScreen: React.FC<Props> = ({ onSelectSaved }) => {
           </div>
           <h1 className="text-2xl font-bold font-jakarta capitalize text-white tracking-tight">{userName}</h1>
           <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mt-2 mb-10 opacity-60">{userEmail}</p>
-          
-          <section className="w-full bg-surface-dark/40 backdrop-blur-xl border border-white/5 p-10 rounded-[48px] mb-10 shadow-2xl relative overflow-hidden group">
-            <div className="absolute top-0 right-0 size-40 bg-primary/10 rounded-full blur-[80px] -translate-y-1/2 translate-x-1/2 group-hover:bg-primary/20 transition-all duration-1000"></div>
-            <div className="flex justify-between items-end mb-8 relative z-10">
-              <div>
-                <p className="text-[10px] text-primary font-black uppercase tracking-[0.4em] mb-3">Devotion Streak</p>
-                <h3 className="text-white font-bold text-4xl tracking-tight leading-none">{streakCount} Days</h3>
-              </div>
-              <div className="flex items-center gap-1 text-amber-500">
-                <span className="material-symbols-outlined fill-current text-4xl animate-bounce-subtle">local_fire_department</span>
-              </div>
-            </div>
-            <div className="h-2.5 w-full bg-white/5 rounded-full overflow-hidden flex gap-2 p-0.5 border border-white/5">
-              {[1,2,3,4,5,6,7].map(i => (
-                <div key={i} className={`h-full flex-1 rounded-full transition-all duration-1000 ease-out ${i <= 5 ? 'bg-primary shadow-[0_0_15px_rgba(19,109,236,0.6)]' : 'bg-white/5'}`} />
-              ))}
-            </div>
-            <p className="text-[9px] text-slate-500 mt-5 font-black uppercase tracking-[0.2em] opacity-40">Spirit Goal: 21 Days Journey</p>
-          </section>
 
           <div className="w-full grid grid-cols-3 gap-5">
             {[

@@ -1,100 +1,288 @@
-
-import { GeneratedContent, CalendarEntry, PipelineItem, User } from './types';
+import { GeneratedContent, CalendarEntry, PipelineItem, PublishedContent, AuditLogEntry } from './types';
+import { authService } from './authService';
 
 const SAVED_KEY = 'devotional_ai_saved';
 const CALENDAR_KEY = 'devotional_ai_calendar';
 const PIPELINE_KEY = 'devotional_ai_pipeline';
-const BLACKLIST_KEY = 'devotional_ai_blacklist';
-const USERS_KEY = 'devotional_auth_users';
+const PUBLISHED_KEY = 'devotional_ai_published';
+const RAW_KEY = 'devotional_ai_raw';
+const AUDIT_KEY = 'devotional_ai_audit';
+const MIGRATION_PREFIX = 'devotional_api_migrated_';
+
+const contentSignature = (content: GeneratedContent) =>
+  `${content.title}::${content.bibleVerse}::${content.devotionalMessage}`.toLowerCase();
+
+const readJson = <T>(key: string, fallback: T): T => {
+  const data = localStorage.getItem(key);
+  if (!data) return fallback;
+  try {
+    return JSON.parse(data) as T;
+  } catch {
+    return fallback;
+  }
+};
+
+const writeJson = (key: string, value: unknown) => {
+  localStorage.setItem(key, JSON.stringify(value));
+};
+
+const authHeaders = () => {
+  const session = authService.getSession();
+  if (!session?.token) throw new Error('Missing auth session.');
+  return {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${session.token}`,
+  };
+};
+
+const request = async <T>(path: string, init: RequestInit): Promise<T> => {
+  const res = await fetch(path, init);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.message || `Request failed (${res.status})`);
+  }
+  return data as T;
+};
+
+const emitDataSync = () => {
+  window.dispatchEvent(new CustomEvent('devotional:data-sync'));
+};
 
 export const storageService = {
-  // Saved Devotionals
-  saveDevotional: (content: GeneratedContent) => {
-    const saved = storageService.getSavedDevotionals();
-    const updated = [content, ...saved.filter(s => s.title !== content.title)];
-    localStorage.setItem(SAVED_KEY, JSON.stringify(updated));
-  },
-  getSavedDevotionals: (): GeneratedContent[] => {
-    const data = localStorage.getItem(SAVED_KEY);
-    return data ? JSON.parse(data) : [];
-  },
-  isSaved: (content: GeneratedContent): boolean => {
-    return storageService.getSavedDevotionals().some(s => s.title === content.title);
+  clearLocalCaches: () => {
+    localStorage.removeItem(SAVED_KEY);
+    localStorage.removeItem(CALENDAR_KEY);
+    localStorage.removeItem(PIPELINE_KEY);
+    localStorage.removeItem(PUBLISHED_KEY);
+    localStorage.removeItem(RAW_KEY);
+    localStorage.removeItem(AUDIT_KEY);
   },
 
+  initializeSessionData: async () => {
+    await storageService.migrateLegacyLocalDataIfNeeded();
+    await storageService.syncData();
+  },
+
+  ensureSeedData: async () => {
+    await storageService.initializeSessionData();
+  },
+
+  migrateLegacyLocalDataIfNeeded: async () => {
+    const session = authService.getSession();
+    if (!session) return;
+
+    const markerKey = `${MIGRATION_PREFIX}${session.user.id}`;
+    if (localStorage.getItem(markerKey) === 'true') return;
+
+    const localSaved = readJson<GeneratedContent[]>(SAVED_KEY, []);
+    const localCalendar = readJson<CalendarEntry[]>(CALENDAR_KEY, []);
+    const localPipeline = readJson<PipelineItem[]>(PIPELINE_KEY, []);
+    const localPublished = readJson<PublishedContent[]>(PUBLISHED_KEY, []);
+
+    if (localSaved.length === 0 && localCalendar.length === 0 && localPipeline.length === 0 && localPublished.length === 0) {
+      localStorage.setItem(markerKey, 'true');
+      return;
+    }
+
+    const scope = session.user.role === 'admin' ? 'all' : 'mine';
+    const remote = await request<{ success: boolean; saved: GeneratedContent[]; calendar: CalendarEntry[]; pipeline: PipelineItem[]; published: PublishedContent[] }>(
+      `/api/data/snapshot?scope=${scope}`,
+      { method: 'GET', headers: authHeaders() }
+    );
+
+    const remoteSavedSignatures = new Set((remote.saved || []).map(contentSignature));
+    for (const content of localSaved) {
+      if (!remoteSavedSignatures.has(contentSignature(content))) {
+        await request('/api/data/saved', {
+          method: 'POST',
+          headers: authHeaders(),
+          body: JSON.stringify({ content }),
+        });
+      }
+    }
+
+    const remoteCalendarIds = new Set((remote.calendar || []).map((entry) => entry.id));
+    for (const entry of localCalendar) {
+      if (!remoteCalendarIds.has(entry.id)) {
+        await request('/api/data/calendar', {
+          method: 'POST',
+          headers: authHeaders(),
+          body: JSON.stringify({ entry }),
+        });
+      }
+    }
+
+    const remotePipelineIds = new Set((remote.pipeline || []).map((item) => item.id));
+    for (const item of localPipeline) {
+      if (!remotePipelineIds.has(item.id)) {
+        await request('/api/data/pipeline', {
+          method: 'POST',
+          headers: authHeaders(),
+          body: JSON.stringify({ item }),
+        });
+      }
+    }
+
+    if (session.user.role === 'admin' && localPublished.length > 0) {
+      const remotePublishedSignatures = new Set((remote.published || []).map(contentSignature));
+      for (const item of localPublished) {
+        if (!remotePublishedSignatures.has(contentSignature(item))) {
+          const { id, publishedAt, ...content } = item;
+          void id;
+          void publishedAt;
+          await request('/api/data/published', {
+            method: 'POST',
+            headers: authHeaders(),
+            body: JSON.stringify({ content }),
+          });
+        }
+      }
+    }
+
+    localStorage.setItem(markerKey, 'true');
+  },
+
+  syncData: async () => {
+    const session = authService.getSession();
+    if (!session) return;
+
+    const scope = session.user.role === 'admin' ? 'all' : 'mine';
+    const data = await request<{ success: boolean; saved: GeneratedContent[]; calendar: CalendarEntry[]; pipeline: PipelineItem[]; published: PublishedContent[] }>(
+      `/api/data/snapshot?scope=${scope}`,
+      {
+        method: 'GET',
+        headers: authHeaders(),
+      }
+    );
+
+    writeJson(SAVED_KEY, data.saved || []);
+    writeJson(CALENDAR_KEY, data.calendar || []);
+    writeJson(PIPELINE_KEY, data.pipeline || []);
+    writeJson(PUBLISHED_KEY, data.published || []);
+
+    if (session.user.role === 'admin') {
+      await storageService.refreshRawData().catch(() => undefined);
+    }
+
+    emitDataSync();
+  },
+
+  // Saved Devotionals
+  saveDevotional: async (content: GeneratedContent) => {
+    const data = await request<{ success: boolean; saved: GeneratedContent[] }>('/api/data/saved', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ content }),
+    });
+    writeJson(SAVED_KEY, data.saved || []);
+    emitDataSync();
+  },
+  getSavedDevotionals: (): GeneratedContent[] => readJson<GeneratedContent[]>(SAVED_KEY, []),
+  isSaved: (content: GeneratedContent): boolean => storageService.getSavedDevotionals().some((s) => s.title === content.title),
+
   // Calendar
-  getCalendar: (): CalendarEntry[] => {
-    const data = localStorage.getItem(CALENDAR_KEY);
-    return data ? JSON.parse(data) : [];
+  getCalendar: (): CalendarEntry[] => readJson<CalendarEntry[]>(CALENDAR_KEY, []),
+  saveCalendarEntry: async (entry: CalendarEntry) => {
+    const data = await request<{ success: boolean; calendar: CalendarEntry[] }>('/api/data/calendar', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ entry }),
+    });
+    writeJson(CALENDAR_KEY, data.calendar || []);
+    emitDataSync();
   },
-  saveCalendarEntry: (entry: CalendarEntry) => {
-    const calendar = storageService.getCalendar();
-    localStorage.setItem(CALENDAR_KEY, JSON.stringify([...calendar, entry]));
-  },
-  deleteCalendarEntry: (id: string) => {
-    const calendar = storageService.getCalendar();
-    localStorage.setItem(CALENDAR_KEY, JSON.stringify(calendar.filter(e => e.id !== id)));
+  deleteCalendarEntry: async (id: string) => {
+    const data = await request<{ success: boolean; calendar: CalendarEntry[] }>(`/api/data/calendar/${id}`, {
+      method: 'DELETE',
+      headers: authHeaders(),
+    });
+    writeJson(CALENDAR_KEY, data.calendar || []);
+    emitDataSync();
   },
 
   // Pipeline
-  getPipeline: (): PipelineItem[] => {
-    const data = localStorage.getItem(PIPELINE_KEY);
-    return data ? JSON.parse(data) : [];
+  getPipeline: (): PipelineItem[] => readJson<PipelineItem[]>(PIPELINE_KEY, []),
+  savePipelineItem: async (item: PipelineItem) => {
+    const data = await request<{ success: boolean; pipeline: PipelineItem[] }>('/api/data/pipeline', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ item }),
+    });
+    writeJson(PIPELINE_KEY, data.pipeline || []);
+    emitDataSync();
   },
-  savePipelineItem: (item: PipelineItem) => {
-    const pipeline = storageService.getPipeline();
-    localStorage.setItem(PIPELINE_KEY, JSON.stringify([...pipeline, item]));
+  updatePipelineItem: async (item: PipelineItem) => {
+    const data = await request<{ success: boolean; pipeline: PipelineItem[] }>(`/api/data/pipeline/${item.id}`, {
+      method: 'PUT',
+      headers: authHeaders(),
+      body: JSON.stringify({ item }),
+    });
+    writeJson(PIPELINE_KEY, data.pipeline || []);
+    emitDataSync();
   },
-  updatePipelineItem: (item: PipelineItem) => {
-    const pipeline = storageService.getPipeline();
-    const updated = pipeline.map(p => p.id === item.id ? item : p);
-    localStorage.setItem(PIPELINE_KEY, JSON.stringify(updated));
-  },
-  deletePipelineItem: (id: string) => {
-    const pipeline = storageService.getPipeline();
-    localStorage.setItem(PIPELINE_KEY, JSON.stringify(pipeline.filter(p => p.id !== id)));
-  },
-
-  // Blacklist
-  getBlacklist: (): string[] => {
-    const data = localStorage.getItem(BLACKLIST_KEY);
-    return data ? JSON.parse(data) : [];
-  },
-  addToBlacklist: (email: string) => {
-    const blacklist = storageService.getBlacklist();
-    if (!blacklist.includes(email.toLowerCase())) {
-      const updated = [...blacklist, email.toLowerCase()];
-      localStorage.setItem(BLACKLIST_KEY, JSON.stringify(updated));
-      // Wipe user if exists
-      const usersData = localStorage.getItem(USERS_KEY);
-      if (usersData) {
-        const users: User[] = JSON.parse(usersData);
-        const filtered = users.filter(u => u.email.toLowerCase() !== email.toLowerCase());
-        localStorage.setItem(USERS_KEY, JSON.stringify(filtered));
-      }
-    }
-  },
-  removeFromBlacklist: (email: string) => {
-    const blacklist = storageService.getBlacklist();
-    const updated = blacklist.filter(e => e !== email.toLowerCase());
-    localStorage.setItem(BLACKLIST_KEY, JSON.stringify(updated));
+  deletePipelineItem: async (id: string) => {
+    const data = await request<{ success: boolean; pipeline: PipelineItem[] }>(`/api/data/pipeline/${id}`, {
+      method: 'DELETE',
+      headers: authHeaders(),
+    });
+    writeJson(PIPELINE_KEY, data.pipeline || []);
+    emitDataSync();
   },
 
-  // Database Access
-  getRawData: () => {
-    const keys = [USERS_KEY, SAVED_KEY, CALENDAR_KEY, PIPELINE_KEY, BLACKLIST_KEY];
-    return keys.map(key => ({
-      key,
-      value: localStorage.getItem(key) || '[]'
-    }));
+  // Published Content (Admin -> User feed source of truth)
+  getPublishedContent: (): PublishedContent[] => readJson<PublishedContent[]>(PUBLISHED_KEY, []),
+  savePublishedContent: async (content: GeneratedContent, source: PublishedContent['source'] = 'manual') => {
+    const data = await request<{ success: boolean; published: PublishedContent[] }>('/api/data/published', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ content: { ...content, source } }),
+    });
+    writeJson(PUBLISHED_KEY, data.published || []);
+    emitDataSync();
   },
-  updateRawData: (key: string, value: string) => {
+  deletePublishedContent: async (id: string) => {
+    const data = await request<{ success: boolean; published: PublishedContent[] }>(`/api/data/published/${id}`, {
+      method: 'DELETE',
+      headers: authHeaders(),
+    });
+    writeJson(PUBLISHED_KEY, data.published || []);
+    emitDataSync();
+  },
+
+  // Admin raw data access
+  getRawData: () => readJson<{ key: string; value: string }[]>(RAW_KEY, []),
+  refreshRawData: async () => {
+    const data = await request<{ success: boolean; raw: { key: string; value: string }[] }>('/api/admin/data/raw', {
+      method: 'GET',
+      headers: authHeaders(),
+    });
+    writeJson(RAW_KEY, data.raw || []);
+    return data.raw || [];
+  },
+  updateRawData: async (key: string, value: string) => {
     try {
-      JSON.parse(value); // Validate JSON
-      localStorage.setItem(key, value);
+      JSON.parse(value);
+      await request('/api/admin/data/raw', {
+        method: 'PUT',
+        headers: authHeaders(),
+        body: JSON.stringify({ key, value }),
+      });
+      await storageService.refreshRawData();
+      emitDataSync();
       return true;
-    } catch (e) {
+    } catch {
       return false;
     }
-  }
+  },
+
+  // Admin audit logs
+  getAuditLogs: () => readJson<AuditLogEntry[]>(AUDIT_KEY, []),
+  refreshAuditLogs: async (limit = 200) => {
+    const data = await request<{ success: boolean; logs: AuditLogEntry[] }>(`/api/admin/audit?limit=${limit}`, {
+      method: 'GET',
+      headers: authHeaders(),
+    });
+    writeJson(AUDIT_KEY, data.logs || []);
+    return data.logs || [];
+  },
 };

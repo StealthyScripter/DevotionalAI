@@ -1,255 +1,250 @@
-
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { GeneratedContent, Role, Format } from '../types';
+import { Role } from '../types';
 import { authService } from '../authService';
+import { getDailyVerse, getFeaturedSeries, getSpiritualFeed } from '../content/spiritualContent';
+import { storageService } from '../storageService';
 
-interface Props {
-  onViewMessage: (content: GeneratedContent) => void;
-}
-
-type FeedItemType = 'message' | 'video' | 'image' | 'sermon';
-
-interface FeedItem {
-  id: string;
-  type: FeedItemType;
-  format: Format;
-  title: string;
-  subtitle?: string;
-  content?: string;
-  imgUrl: string;
-  duration?: string;
-  category: string;
-}
-
-const HomeScreen: React.FC<Props> = ({ onViewMessage }) => {
+const HomeScreen: React.FC = () => {
   const navigate = useNavigate();
+  const [, setDataVersion] = useState(0);
   const session = authService.getSession();
   const userName = session?.user.email.split('@')[0] || 'Friend';
   const isAdmin = session?.user.role === Role.Admin;
 
-  const dailyVerse = {
-    verse: "The Lord is my shepherd; I shall not want. He makes me lie down in green pastures.",
-    ref: "Psalm 23:1-2",
-    img: "https://images.unsplash.com/photo-1518495973542-4542c06a5843?q=80&w=800&auto=format&fit=crop"
+  const dailyVerse = getDailyVerse();
+  const feedItems = getSpiritualFeed();
+  const featuredSeries = getFeaturedSeries();
+  const heroSeries = featuredSeries[0];
+
+  useEffect(() => {
+    void storageService.syncData().finally(() => setDataVersion((v) => v + 1));
+    const onSync = () => setDataVersion((v) => v + 1);
+    window.addEventListener('devotional:data-sync', onSync);
+    return () => window.removeEventListener('devotional:data-sync', onSync);
+  }, []);
+
+  const kindLabelMap = {
+    video: 'Video',
+    image: 'Image',
+    verse: 'Verse',
+    sms: 'SMS',
+    'short-sermon': 'Short Sermon',
+    'long-sermon': 'Long Sermon',
+  } as const;
+
+  const openHero = () => {
+    navigate('/meditation');
   };
 
-  const feedItems: FeedItem[] = [
-    {
-      id: '1',
-      type: 'message',
-      format: Format.SMS,
-      category: 'Daily Bread',
-      title: "Your Identity is in Christ",
-      content: "You are not defined by your mistakes or your successes, but by the reckless love of a Father who called you His own before the world began.",
-      imgUrl: 'https://images.unsplash.com/photo-1490730141103-6cac27aaab94?q=80&w=800&auto=format&fit=crop',
-    },
-    {
-      id: '2',
-      type: 'video',
-      format: Format.VideoScript,
-      category: 'Video Reflection',
-      title: "Walking on Water",
-      subtitle: "Finding courage in the middle of your biggest storm.",
-      duration: '4:20',
-      imgUrl: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=600&auto=format&fit=crop',
-    },
-    {
-      id: '3',
-      type: 'image',
-      format: Format.ImagePrompt,
-      category: 'Meditation',
-      title: "Quiet Spirit",
-      imgUrl: 'https://images.unsplash.com/photo-1444491741275-3747c53c99b4?q=80&w=600&auto=format&fit=crop',
-    },
-    {
-      id: '4',
-      type: 'sermon',
-      format: Format.SermonNotes,
-      category: 'Sunday Message',
-      title: "The Architecture of Grace",
-      subtitle: "A deep dive into the book of Romans and the radical nature of God's forgiveness.",
-      duration: '22 min read',
-      imgUrl: 'https://images.unsplash.com/photo-1438232992991-995b7058bbb3?q=80&w=600&auto=format&fit=crop',
-    }
-  ];
+  const createVerseCardBlob = async () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1080;
+    canvas.height = 1350;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
 
-  const handleCardClick = (item: FeedItem) => {
-    onViewMessage({
-      title: item.title,
-      bibleVerse: item.category === 'Daily Bread' ? 'Ephesians 2:10' : 'Various Scriptures',
-      devotionalMessage: item.content || item.subtitle || "A deep spiritual exploration awaits...",
-      practicalApplication: "Reflect on this message during your quiet time today.",
-      callToAction: "Apply this wisdom to your current situation.",
-      format: item.format,
-      videoScript: item.type === 'video' ? {
-        hook: "Ever feel like you're sinking?",
-        body: item.subtitle || "",
-        cta: "Step out in faith.",
-        visuals: "Ocean waves at night.",
-        audio: "Soft ambient worship music."
-      } : undefined
+    const image = new Image();
+    image.crossOrigin = 'anonymous';
+
+    await new Promise<void>((resolve, reject) => {
+      image.onload = () => resolve();
+      image.onerror = () => reject(new Error('Image load failed'));
+      image.src = dailyVerse.imageUrl;
     });
+
+    ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+    const gradient = ctx.createLinearGradient(0, canvas.height * 0.35, 0, canvas.height);
+    gradient.addColorStop(0, 'rgba(0,0,0,0.15)');
+    gradient.addColorStop(1, 'rgba(8, 12, 19, 0.92)');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'center';
+    ctx.font = '700 56px Georgia';
+
+    const wrapText = (text: string, maxWidth: number): string[] => {
+      const words = text.split(' ');
+      const lines: string[] = [];
+      let line = '';
+
+      words.forEach((word) => {
+        const testLine = line ? `${line} ${word}` : word;
+        if (ctx.measureText(testLine).width > maxWidth) {
+          if (line) lines.push(line);
+          line = word;
+        } else {
+          line = testLine;
+        }
+      });
+
+      if (line) lines.push(line);
+      return lines;
+    };
+
+    const lines = wrapText(`"${dailyVerse.verse}"`, 830);
+    let y = 760;
+    lines.forEach((line) => {
+      ctx.fillText(line, canvas.width / 2, y);
+      y += 74;
+    });
+
+    ctx.font = '700 32px Arial';
+    ctx.fillStyle = '#8cc6ff';
+    ctx.fillText(dailyVerse.ref.toUpperCase(), canvas.width / 2, y + 32);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '700 22px Arial';
+    ctx.fillText('Shared from DevotionalAI', canvas.width / 2, canvas.height - 65);
+
+    return new Promise<Blob | null>((resolve) => canvas.toBlob((blob) => resolve(blob), 'image/png'));
+  };
+
+  const shareHero = async (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    try {
+      const blob = await createVerseCardBlob();
+      if (!blob) throw new Error('Card generation failed');
+
+      const file = new File([blob], 'daily-verse.png', { type: 'image/png' });
+      const shareData = {
+        title: `Daily Verse - ${dailyVerse.ref}`,
+        text: `${dailyVerse.verse} (${dailyVerse.ref})`,
+        files: [file],
+      };
+
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share(shareData);
+        return;
+      }
+
+      const downloadUrl = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = downloadUrl;
+      anchor.download = 'daily-verse.png';
+      anchor.click();
+      URL.revokeObjectURL(downloadUrl);
+    } catch {
+      const fallback = `${dailyVerse.verse} (${dailyVerse.ref})`;
+      await navigator.clipboard.writeText(fallback);
+    }
   };
 
   return (
-    <div className="flex flex-col min-h-screen pb-40">
-      <header className="sticky top-0 z-50 glass border-b border-white/5">
-        <div className="flex items-center p-4 justify-between max-w-md mx-auto">
+    <div className="flex min-h-screen flex-col pb-40">
+      <header className="sticky top-0 z-50 border-b border-white/5 glass">
+        <div className="mx-auto flex max-w-md items-center justify-between p-4">
           <div className="flex flex-col">
-            <p className="text-[10px] uppercase tracking-[0.2em] text-primary font-black mb-0.5">Shalom</p>
-            <h2 className="text-white text-xl font-bold tracking-tight font-jakarta capitalize">Hello, {userName}</h2>
+            <p className="mb-0.5 text-[10px] font-black uppercase tracking-[0.2em] text-primary">Shalom</p>
+            <h2 className="text-xl font-bold tracking-tight text-white capitalize">Hello, {userName}</h2>
           </div>
           <div className="flex items-center gap-2">
             {isAdmin && (
-              <button onClick={() => navigate('/admin')} className="flex size-10 items-center justify-center rounded-full bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 transition-colors">
+              <button onClick={() => navigate('/admin')} className="flex size-10 items-center justify-center rounded-full border border-primary/20 bg-primary/10 text-primary hover:bg-primary/20">
                 <span className="material-symbols-outlined text-[20px]">admin_panel_settings</span>
               </button>
             )}
-            <button onClick={() => navigate('/settings')} className="flex size-10 items-center justify-center rounded-full bg-surface-dark border border-border-dark text-slate-400 hover:text-white transition-colors">
+            <button onClick={() => navigate('/settings')} className="flex size-10 items-center justify-center rounded-full border border-border-dark bg-surface-dark text-slate-400 hover:text-white">
               <span className="material-symbols-outlined text-[20px]">settings</span>
             </button>
           </div>
         </div>
       </header>
 
-      <main className="px-4 space-y-8 pt-6 max-w-md mx-auto w-full">
-        {/* Hero Card */}
-        <section 
-          className="relative group flex flex-col items-stretch justify-end rounded-[32px] pt-64 shadow-2xl overflow-hidden aspect-[4/5] animate-in fade-in duration-700 cursor-pointer transition-transform active:scale-[0.98]"
-          onClick={() => handleCardClick({ id: 'hero', type: 'message', format: Format.SMS, title: 'Verse of the Day', category: 'Daily Bread', content: dailyVerse.verse, imgUrl: dailyVerse.img })}
+      <main className="mx-auto w-full max-w-md space-y-8 px-4 pt-6">
+        <section
+          className="group relative aspect-[4/5] cursor-pointer overflow-hidden rounded-[32px] pt-64 shadow-2xl transition-transform active:scale-[0.98]"
+          onClick={openHero}
         >
-          <img src={dailyVerse.img} className="absolute inset-0 w-full h-full object-cover transition-transform duration-[10s] group-hover:scale-110" alt="Daily Verse" />
-          <div className="absolute inset-0 bg-gradient-to-t from-background-dark via-background-dark/20 to-transparent"></div>
-          <div className="absolute top-6 left-6 flex items-center justify-between right-6 z-20">
-             <div className="bg-white/10 backdrop-blur-md rounded-full px-4 py-2 border border-white/20">
-                <p className="text-white text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
-                  <span className="size-1.5 rounded-full bg-primary animate-pulse"></span>
-                  Featured Word
-                </p>
-             </div>
-             <button className="size-8 rounded-full glass border border-white/10 flex items-center justify-center text-white/60 hover:text-white transition-colors">
-               <span className="material-symbols-outlined text-lg">more_vert</span>
-             </button>
+          <img src={dailyVerse.imageUrl} className="absolute inset-0 h-full w-full object-cover transition-transform duration-[8s] group-hover:scale-110" alt="Daily verse" />
+          <div className="absolute inset-0 bg-gradient-to-t from-background-dark via-background-dark/25 to-transparent" />
+
+          <div className="absolute left-6 right-6 top-6 z-20 flex items-center justify-between">
+            <div className="rounded-full border border-white/20 bg-black/20 px-4 py-2 backdrop-blur-md">
+              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-white">Daily Verse</p>
+            </div>
+            <button
+              onClick={shareHero}
+              className="flex size-9 items-center justify-center rounded-full border border-white/15 bg-black/20 text-white hover:bg-black/30"
+            >
+              <span className="material-symbols-outlined text-lg">share</span>
+            </button>
           </div>
-          <div className="flex w-full flex-col gap-3 p-8 relative z-10 transition-transform duration-500 group-hover:-translate-y-2">
-            <p className="text-white font-display text-2xl italic leading-snug">"{dailyVerse.verse}"</p>
-            <p className="text-white/40 font-sans text-[10px] font-black tracking-[0.3em] uppercase">{dailyVerse.ref}</p>
+
+          <div className="relative z-10 flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
+            <p className="text-2xl italic leading-snug text-white">"{dailyVerse.verse}"</p>
+            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/70">{dailyVerse.ref}</p>
           </div>
         </section>
 
-        {/* Spiritual Feed */}
-        <div className="space-y-6">
+        <section className="space-y-4">
           <div className="flex items-center justify-between px-1">
             <h3 className="text-sm font-black uppercase tracking-[0.3em] text-slate-500">Spiritual Feed</h3>
-            <button onClick={() => navigate('/discover')} className="text-[10px] text-primary font-black uppercase tracking-widest bg-primary/10 px-3 py-1 rounded-full hover:bg-primary/20 transition-all">Explore All</button>
+            <button onClick={() => navigate('/discover')} className="rounded-full bg-primary/10 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-primary hover:bg-primary/20">
+              Explore All
+            </button>
           </div>
 
           {feedItems.map((item) => (
-            <div key={item.id} className="animate-in fade-in slide-in-from-bottom-4 duration-500 relative group">
-              {/* Devotional Card */}
-              {item.type === 'message' && (
-                <div 
-                  className="bg-primary p-8 rounded-[24px] shadow-2xl shadow-primary/20 relative overflow-hidden group cursor-pointer active:scale-95 transition-all"
-                  onClick={() => handleCardClick(item)}
-                >
-                  <div className="absolute -top-10 -right-10 size-40 bg-white/5 rounded-full blur-2xl group-hover:bg-white/10 transition-colors"></div>
-                  <div className="flex justify-between items-start mb-6">
-                    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/60">{item.category}</p>
-                    <button className="text-white/40 hover:text-white transition-colors z-20">
-                      <span className="material-symbols-outlined text-lg">more_vert</span>
-                    </button>
-                  </div>
-                  <h4 className="text-white font-display text-2xl font-bold mb-4 leading-tight">{item.title}</h4>
-                  <p className="text-white/90 text-base leading-relaxed italic line-clamp-3">"{item.content}"</p>
+            <article
+              key={item.id}
+              onClick={() => navigate(`/feed/${item.id}`)}
+              className="group flex cursor-pointer gap-4 rounded-[24px] border border-white/10 bg-surface-dark/60 p-4 shadow-xl transition-all hover:border-white/20 active:scale-[0.98]"
+            >
+              <div className="h-20 w-20 shrink-0 overflow-hidden rounded-2xl border border-white/10">
+                <img src={item.imageUrl} className="h-full w-full object-cover opacity-75 transition-opacity group-hover:opacity-100" alt={item.title} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[9px] font-black uppercase tracking-[0.24em] text-primary">{kindLabelMap[item.kind]}</p>
+                <h4 className="truncate text-base font-bold text-white">{item.title}</h4>
+                <p className="mt-1 line-clamp-2 text-xs text-slate-400">{item.subtitle}</p>
+                <div className="mt-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">
+                  <span>{item.scripture}</span>
+                  {item.duration && <span>• {item.duration}</span>}
                 </div>
-              )}
-
-              {/* Video Reflection Card */}
-              {item.type === 'video' && (
-                <div 
-                  className="bg-surface-dark border border-white/5 rounded-[24px] overflow-hidden group cursor-pointer active:scale-95 transition-all shadow-xl hover:border-white/10"
-                  onClick={() => handleCardClick(item)}
-                >
-                  <div className="aspect-video relative overflow-hidden">
-                    <img src={item.imgUrl} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105 opacity-80" alt={item.title} />
-                    <div className="absolute inset-0 bg-black/40 group-hover:bg-black/20 transition-all duration-500 flex items-center justify-center">
-                       <div className="size-14 rounded-full glass border border-white/20 flex items-center justify-center text-white relative shadow-2xl transform transition-transform group-hover:scale-110">
-                         <span className="material-symbols-outlined text-3xl fill-current ml-1">play_arrow</span>
-                       </div>
-                    </div>
-                    <div className="absolute top-4 right-4 z-20">
-                      <button className="size-8 rounded-full glass border border-white/10 flex items-center justify-center text-white/60 hover:text-white transition-colors">
-                        <span className="material-symbols-outlined text-lg">more_vert</span>
-                      </button>
-                    </div>
-                    <div className="absolute bottom-4 right-4 bg-black/60 backdrop-blur-md px-2 py-1 rounded-md border border-white/10">
-                      <span className="text-white text-[10px] font-bold">{item.duration}</span>
-                    </div>
-                  </div>
-                  <div className="p-6">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="material-symbols-outlined text-primary text-sm">videocam</span>
-                      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">{item.category}</p>
-                    </div>
-                    <h4 className="text-white font-bold text-lg mb-2">{item.title}</h4>
-                    <p className="text-slate-500 text-xs line-clamp-1">{item.subtitle}</p>
-                  </div>
-                </div>
-              )}
-
-              {/* Meditation Image Card */}
-              {item.type === 'image' && (
-                <div 
-                  className="relative aspect-square rounded-[24px] overflow-hidden group cursor-pointer active:scale-95 transition-all shadow-xl"
-                  onClick={() => handleCardClick(item)}
-                >
-                  <img src={item.imgUrl} className="w-full h-full object-cover transition-transform duration-[10s] group-hover:scale-110 opacity-70" alt={item.title} />
-                  <div className="absolute top-4 right-4 z-20">
-                    <button className="size-8 rounded-full glass border border-white/10 flex items-center justify-center text-white/60 hover:text-white transition-colors">
-                      <span className="material-symbols-outlined text-lg">more_vert</span>
-                    </button>
-                  </div>
-                  <div className="absolute inset-0 bg-gradient-to-t from-background-dark via-background-dark/20 to-transparent opacity-90 p-8 flex flex-col justify-end">
-                    <p className="text-white/60 text-[10px] font-black uppercase tracking-[0.3em] mb-2">{item.category}</p>
-                    <h4 className="text-white font-display text-3xl font-bold italic">{item.title}</h4>
-                  </div>
-                </div>
-              )}
-
-              {/* Sermon Card */}
-              {item.type === 'sermon' && (
-                <div 
-                  className="bg-surface-dark border border-white/5 p-8 rounded-[24px] space-y-5 cursor-pointer active:scale-95 transition-all shadow-xl hover:border-white/10 group"
-                  onClick={() => handleCardClick(item)}
-                >
-                  <div className="flex justify-between items-start">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="material-symbols-outlined text-primary text-sm">menu_book</span>
-                        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-primary">{item.category}</p>
-                      </div>
-                      <h4 className="text-white font-bold text-xl font-jakarta group-hover:text-primary transition-colors">{item.title}</h4>
-                    </div>
-                    <button className="text-slate-600 hover:text-white transition-colors z-20">
-                      <span className="material-symbols-outlined text-lg">more_vert</span>
-                    </button>
-                  </div>
-                  <p className="text-slate-400 text-sm leading-relaxed line-clamp-3 italic">"{item.subtitle}"</p>
-                  <div className="flex items-center justify-between pt-5 border-t border-white/5">
-                    <div className="flex items-center gap-2">
-                      <span className="material-symbols-outlined text-slate-500 text-sm">schedule</span>
-                      <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{item.duration}</span>
-                    </div>
-                    <span className="text-[10px] font-black text-primary uppercase tracking-[0.2em] flex items-center gap-1 group-hover:translate-x-1 transition-transform">
-                      Study Now <span className="material-symbols-outlined text-sm">arrow_forward</span>
-                    </span>
-                  </div>
-                </div>
-              )}
-            </div>
+              </div>
+              <span className="material-symbols-outlined self-start text-slate-600">chevron_right</span>
+            </article>
           ))}
-        </div>
+
+          {feedItems.length === 0 && (
+            <div className="rounded-[24px] border border-dashed border-white/10 bg-surface-dark/40 p-8 text-center">
+              <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-500">No feed content yet</p>
+              <p className="mt-3 text-xs text-slate-400">Ask admin to publish from Command Center to populate Home feed.</p>
+            </div>
+          )}
+        </section>
+
+        <section className="space-y-4 pb-2">
+          <div className="flex items-center justify-between px-1">
+            <h3 className="text-sm font-black uppercase tracking-[0.3em] text-slate-500">Featured Series</h3>
+            <button
+              onClick={() => navigate('/featured-series')}
+              className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-primary"
+            >
+              Open
+            </button>
+          </div>
+          <button
+            onClick={() => navigate(heroSeries ? `/featured-series/${heroSeries.id}` : '/featured-series')}
+            className="relative block w-full overflow-hidden rounded-[28px] border border-white/10 text-left shadow-2xl"
+          >
+            <img
+              src={heroSeries?.coverImageUrl || 'https://images.unsplash.com/photo-1508672019048-805c876b67e2?q=80&w=1200&auto=format&fit=crop'}
+              className="h-56 w-full object-cover"
+              alt="Featured series"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/35 to-black/30" />
+            <div className="absolute inset-0 flex items-center justify-center p-6 text-center">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-primary">{heroSeries?.title || 'Featured Series'}</p>
+                <p className="mt-2 text-xl font-bold text-white">{heroSeries?.description || 'Admin-published series will appear here.'}</p>
+              </div>
+            </div>
+          </button>
+        </section>
       </main>
     </div>
   );

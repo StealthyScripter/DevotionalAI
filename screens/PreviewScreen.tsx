@@ -31,11 +31,17 @@ const PreviewScreen: React.FC<Props> = ({ content }) => {
     }, 2500);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!content || saving) return;
     setSaving(true);
-    storageService.saveDevotional(content);
-    
+    try {
+      await storageService.saveDevotional(content);
+    } catch {
+      setSaving(false);
+      showToast('Save Failed');
+      return;
+    }
+
     // Simulate spiritual preservation delay
     setTimeout(() => {
       setIsSaved(true);
@@ -47,15 +53,139 @@ const PreviewScreen: React.FC<Props> = ({ content }) => {
 
   const handleShare = async () => {
     if (!content) return;
-    const shareText = `🕊️ Study: ${content.title}\n📖 Word: ${content.bibleVerse}\n\n${content.devotionalMessage}\n\nShared from DevotionalAI`;
-    if (navigator.share) {
+    const isSMS = content.format === Format.SMS;
+    const isVideo = !!content.videoUrl;
+    const isImage = !!content.imageUrl;
+
+    const shareText = isSMS
+      ? `📩 ${content.title}\n${content.devotionalMessage}\n— ${content.bibleVerse}\n\nShared from DevotionalAI`
+      : `🕊️ Study: ${content.title}\n📖 Word: ${content.bibleVerse}\n\n${content.devotionalMessage}\n\nShared from DevotionalAI`;
+
+    const wrapText = (ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] => {
+      const words = text.trim().split(/\s+/);
+      const lines: string[] = [];
+      let line = '';
+      for (const word of words) {
+        const testLine = line ? `${line} ${word}` : word;
+        if (ctx.measureText(testLine).width > maxWidth) {
+          if (line) lines.push(line);
+          line = word;
+        } else {
+          line = testLine;
+        }
+      }
+      if (line) lines.push(line);
+      return lines;
+    };
+
+    const createMemeImage = async (): Promise<File | null> => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 1080;
+      canvas.height = 1350;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return null;
+
+      if (content.imageUrl) {
+        const image = new Image();
+        image.crossOrigin = 'anonymous';
+        await new Promise<void>((resolve, reject) => {
+          image.onload = () => resolve();
+          image.onerror = () => reject(new Error('Image load failed'));
+          image.src = content.imageUrl!;
+        });
+        ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+      } else {
+        const bg = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+        bg.addColorStop(0, '#0f172a');
+        bg.addColorStop(0.5, '#1e293b');
+        bg.addColorStop(1, '#020617');
+        ctx.fillStyle = bg;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
+
+      const overlay = ctx.createLinearGradient(0, 0, 0, canvas.height);
+      overlay.addColorStop(0, 'rgba(0,0,0,0.45)');
+      overlay.addColorStop(0.55, 'rgba(0,0,0,0.15)');
+      overlay.addColorStop(1, 'rgba(0,0,0,0.55)');
+      ctx.fillStyle = overlay;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      const topText = content.title.toUpperCase();
+      const bottomText = `"${content.devotionalMessage}" ${content.bibleVerse}`.toUpperCase();
+      const maxWidth = 930;
+
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#ffffff';
+      ctx.strokeStyle = '#000000';
+      ctx.lineJoin = 'round';
+
+      ctx.font = '900 66px Impact, Arial Black, sans-serif';
+      ctx.lineWidth = 10;
+      const topLines = wrapText(ctx, topText, maxWidth).slice(0, 3);
+      let topY = 110;
+      for (const line of topLines) {
+        ctx.strokeText(line, canvas.width / 2, topY);
+        ctx.fillText(line, canvas.width / 2, topY);
+        topY += 76;
+      }
+
+      ctx.font = '900 56px Impact, Arial Black, sans-serif';
+      ctx.lineWidth = 9;
+      const bottomLines = wrapText(ctx, bottomText, maxWidth).slice(0, 5);
+      let bottomY = canvas.height - 80 - (bottomLines.length - 1) * 68;
+      for (const line of bottomLines) {
+        ctx.strokeText(line, canvas.width / 2, bottomY);
+        ctx.fillText(line, canvas.width / 2, bottomY);
+        bottomY += 68;
+      }
+
+      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob((result) => resolve(result), 'image/png'));
+      if (!blob) return null;
+      return new File([blob], 'devotional-meme.png', { type: 'image/png' });
+    };
+
+    const createVideoFile = async (): Promise<File | null> => {
+      if (!content.videoUrl) return null;
       try {
-        await navigator.share({ title: content.title, text: shareText, url: window.location.href });
-      } catch (err) { console.debug('Share failed:', err); }
-    } else {
-      await navigator.clipboard.writeText(shareText);
-      showToast('Word Copied');
+        const res = await fetch(content.videoUrl);
+        if (!res.ok) return null;
+        const blob = await res.blob();
+        return new File([blob], 'devotional-video.mp4', { type: blob.type || 'video/mp4' });
+      } catch {
+        return null;
+      }
+    };
+
+    try {
+      if (navigator.share) {
+        if (isVideo) {
+          const videoFile = await createVideoFile();
+          if (videoFile && navigator.canShare?.({ files: [videoFile] })) {
+            await navigator.share({ title: content.title, text: shareText, files: [videoFile] });
+          } else {
+            await navigator.share({ title: content.title, text: shareText, url: content.videoUrl || window.location.href });
+          }
+        } else if (isImage || !isSMS) {
+          const memeFile = await createMemeImage();
+          if (memeFile && navigator.canShare?.({ files: [memeFile] })) {
+            await navigator.share({ title: content.title, text: shareText, files: [memeFile] });
+          } else {
+            await navigator.share({ title: content.title, text: shareText, url: window.location.href });
+          }
+        } else {
+          await navigator.share({ title: content.title, text: shareText });
+        }
+      } else {
+        if (isVideo && content.videoUrl) {
+          window.open(content.videoUrl, '_blank', 'noopener,noreferrer');
+        }
+        await navigator.clipboard.writeText(shareText);
+        showToast(isSMS ? 'SMS Copied' : 'Word Copied');
+      }
+    } catch (err) {
+      console.debug('Share failed:', err);
     }
+
     setShowMenu(false);
   };
 
@@ -86,18 +216,18 @@ const PreviewScreen: React.FC<Props> = ({ content }) => {
           <span className="text-[9px] text-primary font-black uppercase tracking-[0.4em] mt-1">{isSermon ? 'Exegesis' : 'Manna'}</span>
         </div>
         <div className="relative">
-          <button 
+          <button
             onClick={() => setShowMenu(!showMenu)}
             className="text-white flex size-10 items-center justify-center rounded-xl hover:bg-white/5 transition-colors"
           >
             <span className="material-symbols-outlined">more_vert</span>
           </button>
-          
+
           {showMenu && (
             <>
               <div className="fixed inset-0 z-[60]" onClick={() => setShowMenu(false)}></div>
               <div className="absolute right-0 mt-3 w-64 glass border border-white/10 rounded-[32px] shadow-3xl py-3 z-[70] animate-in fade-in zoom-in-95 duration-200">
-                <button 
+                <button
                   onClick={handleSave}
                   className="w-full flex items-center gap-4 px-6 py-4 text-[11px] font-black uppercase tracking-widest text-white hover:bg-white/5 text-left transition-colors"
                 >
@@ -106,7 +236,7 @@ const PreviewScreen: React.FC<Props> = ({ content }) => {
                   </span>
                   {isSaved ? 'Saved to Library' : 'Add to Treasury'}
                 </button>
-                <button 
+                <button
                   onClick={handleShare}
                   className="w-full flex items-center gap-4 px-6 py-4 text-[11px] font-black uppercase tracking-widest text-white hover:bg-white/5 text-left transition-colors"
                 >
@@ -114,7 +244,7 @@ const PreviewScreen: React.FC<Props> = ({ content }) => {
                   Spread the Word
                 </button>
                 <div className="mx-6 my-2 h-px bg-white/5"></div>
-                <button 
+                <button
                   onClick={() => {
                     navigate('/chat');
                     setShowMenu(false);
@@ -168,9 +298,9 @@ const PreviewScreen: React.FC<Props> = ({ content }) => {
 
           <div className={`relative ${isSMS ? 'max-w-[85%] mr-auto' : ''}`}>
              <div className={`${
-               isSermon 
-                 ? 'bg-transparent border-l-4 border-primary/20 pl-10' 
-                 : isSMS 
+               isSermon
+                 ? 'bg-transparent border-l-4 border-primary/20 pl-10'
+                 : isSMS
                    ? 'bg-surface-dark/60 backdrop-blur-xl border border-white/5 p-8 rounded-[40px] rounded-tl-none shadow-3xl'
                    : 'bg-surface-dark/50 backdrop-blur-xl border border-white/5 p-12 rounded-[56px] shadow-3xl'
              }`}>
@@ -244,7 +374,7 @@ const PreviewScreen: React.FC<Props> = ({ content }) => {
 
       <div className="fixed bottom-0 left-0 right-0 glass border-t border-white/10 p-6 pb-16 z-50 flex flex-col gap-4 max-w-md mx-auto">
         {!isSaved && (
-          <button 
+          <button
             onClick={handleSave}
             disabled={saving}
             className={`w-full bg-white/5 border border-white/10 text-white font-black uppercase tracking-[0.4em] py-6 rounded-[28px] flex items-center justify-center gap-4 active:scale-95 transition-all hover:bg-white/10 group shadow-2xl ${saving ? 'opacity-50' : ''}`}
@@ -259,7 +389,7 @@ const PreviewScreen: React.FC<Props> = ({ content }) => {
             )}
           </button>
         )}
-        <button 
+        <button
           onClick={() => navigate(-1)}
           className="w-full bg-primary text-white font-black uppercase tracking-[0.4em] py-6 rounded-[28px] flex items-center justify-center gap-4 active:scale-95 transition-all shadow-3xl shadow-primary/40 relative overflow-hidden group"
         >

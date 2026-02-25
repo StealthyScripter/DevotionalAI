@@ -1,12 +1,12 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { GeneratedContent, Role, PipelineStatus, Format, Theme, CalendarEntry, PipelineItem, Length, Audience, Style, User } from '../types';
+import { GeneratedContent, Role, PipelineStatus, Format, Theme, CalendarEntry, PipelineItem, Length, Audience, Style, User, AuditLogEntry } from '../types';
 import { authService, MASTER_ADMIN_EMAIL } from '../authService';
 import { storageService } from '../storageService';
 import { generateDevotional, generateVeoVideo, generateImagePro, editImageFlash, generateVeoVideoFromImage, analyzeOrEditContent } from '../geminiService';
 import { useNavigate } from 'react-router-dom';
 
-type AdminTab = 'studio' | 'media' | 'scheduler' | 'pipeline' | 'archive' | 'registry' | 'database' | 'help' | 'ai_center';
+type AdminTab = 'studio' | 'media' | 'scheduler' | 'pipeline' | 'archive' | 'registry' | 'database' | 'audit' | 'help' | 'ai_center';
 type AICenterTab = 'pro_image' | 'flash_edit' | 'veo_studio' | 'intelligence';
 
 const themeIcons: Record<Theme, string> = {
@@ -37,6 +37,7 @@ const AdminPipelineScreen: React.FC<{ onRefine: (c: GeneratedContent) => void }>
   const [pipeline, setPipeline] = useState<PipelineItem[]>([]);
   const [dbData, setDbData] = useState<{key: string, value: string}[]>([]);
   const [savedDevotionals, setSavedDevotionals] = useState<GeneratedContent[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
 
   // Studio / Refine States
   const [refiningItem, setRefiningItem] = useState<PipelineItem | null>(null);
@@ -66,14 +67,17 @@ const AdminPipelineScreen: React.FC<{ onRefine: (c: GeneratedContent) => void }>
   const [showAddSched, setShowAddSched] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const tabsScrollRef = useRef<HTMLDivElement>(null);
 
-  const refreshData = useCallback(() => {
-    setUsers(authService.getUsers());
-    setBlacklist(storageService.getBlacklist());
+  const refreshData = useCallback(async () => {
+    await storageService.syncData().catch(() => undefined);
+    setUsers(await authService.refreshUsers().catch(() => authService.getUsers()));
+    setBlacklist(await authService.refreshBlacklist().catch(() => authService.getBlacklist()));
     setCalendar(storageService.getCalendar());
     setPipeline(storageService.getPipeline());
-    setDbData(storageService.getRawData());
-    setSavedDevotionals(storageService.getSavedDevotionals());
+    setDbData(await storageService.refreshRawData().catch(() => storageService.getRawData()));
+    setSavedDevotionals(storageService.getPublishedContent());
+    setAuditLogs(await storageService.refreshAuditLogs().catch(() => storageService.getAuditLogs()));
   }, []);
 
   useEffect(() => {
@@ -81,7 +85,7 @@ const AdminPipelineScreen: React.FC<{ onRefine: (c: GeneratedContent) => void }>
     if (!session || session.user.role !== Role.Admin) {
       navigate('/home');
     } else {
-      refreshData();
+      void refreshData();
     }
   }, [navigate, refreshData]);
 
@@ -138,28 +142,29 @@ const AdminPipelineScreen: React.FC<{ onRefine: (c: GeneratedContent) => void }>
           id: pipelineId,
           calendarId: entry.id,
           format: format,
+          theme: entry.theme,
           status: PipelineStatus.Generating,
           content: { title: 'Generating...', bibleVerse: entry.verse, devotionalMessage: '', practicalApplication: '', callToAction: '' }
         };
-        storageService.savePipelineItem(placeholder);
-        refreshData();
+        await storageService.savePipelineItem(placeholder);
+        await refreshData();
 
         // Actual Generation
         let content: GeneratedContent;
         if (format === Format.ImagePrompt) {
           const url = await generateImagePro(`Sacred spiritual art of ${entry.theme}. Verse: ${entry.verse}`, '1K');
-          content = { title: `${entry.theme} Vision`, bibleVerse: entry.verse, devotionalMessage: 'Prophetic Concept Manifested', practicalApplication: '', callToAction: '', imageUrl: url };
+          content = { title: `${entry.theme} Vision`, bibleVerse: entry.verse, devotionalMessage: 'Prophetic Concept Manifested', practicalApplication: '', callToAction: '', imageUrl: url, format: Format.ImagePrompt };
         } else if (format === Format.VideoScript) {
           const url = await generateVeoVideo(`Cinematic reflection of ${entry.theme}. ${entry.verse}`);
-          content = { title: `${entry.theme} Motion`, bibleVerse: entry.verse, devotionalMessage: 'Veo Cinematic testimony', practicalApplication: '', callToAction: '', videoUrl: url };
+          content = { title: `${entry.theme} Motion`, bibleVerse: entry.verse, devotionalMessage: 'Veo Cinematic testimony', practicalApplication: '', callToAction: '', videoUrl: url, format: Format.VideoScript };
         } else {
           content = await generateDevotional(entry.theme, entry.verse, format);
         }
 
-        storageService.updatePipelineItem({ ...placeholder, content, status: PipelineStatus.Ready });
+        await storageService.updatePipelineItem({ ...placeholder, content, status: PipelineStatus.Ready });
       }
-      storageService.deleteCalendarEntry(entry.id);
-      refreshData();
+      await storageService.deleteCalendarEntry(entry.id);
+      await refreshData();
     } catch (err) {
       alert('One or more generations failed.');
     } finally {
@@ -183,7 +188,7 @@ const AdminPipelineScreen: React.FC<{ onRefine: (c: GeneratedContent) => void }>
     setLoadingMsg('Applying Prophetic Adjustments...');
     try {
       const content = await generateDevotional(
-        Theme.Hope, // dummy
+        refiningItem.theme || Theme.Hope,
         refiningItem.content.bibleVerse,
         refiningItem.format,
         Length.Medium,
@@ -192,46 +197,69 @@ const AdminPipelineScreen: React.FC<{ onRefine: (c: GeneratedContent) => void }>
         `EXISTING CONTENT: ${refiningItem.content.devotionalMessage}. ADJUSTMENT: ${refinePrompt}`
       );
       const updated = { ...refiningItem, content, status: PipelineStatus.Ready };
-      storageService.updatePipelineItem(updated);
+      await storageService.updatePipelineItem(updated);
       setRefiningItem(null);
       setRefinePrompt('');
-      refreshData();
+      await refreshData();
     } catch (e) { alert('Refinement failed.'); }
     finally { setLoading(false); }
   };
 
-  const handleApprove = (item: PipelineItem) => {
-    storageService.updatePipelineItem({ ...item, status: PipelineStatus.Approved });
-    refreshData();
+  const handleApprove = async (item: PipelineItem) => {
+    await storageService.updatePipelineItem({ ...item, status: PipelineStatus.Approved });
+    await refreshData();
   };
 
   const handlePublish = (item: PipelineItem) => {
     setLoading(true);
     setLoadingMsg('Distributing to Spiritual Networks...');
-    setTimeout(() => {
-      storageService.saveDevotional(item.content);
-      storageService.deletePipelineItem(item.id);
-      setLoading(false);
-      refreshData();
-      alert('Published to Global Feed.');
+    setTimeout(async () => {
+      try {
+        await storageService.savePublishedContent({ ...item.content, format: item.format }, 'pipeline');
+        await storageService.deletePipelineItem(item.id);
+        await refreshData();
+        alert('Published to Global Feed.');
+      } catch {
+        alert('Publish failed.');
+      } finally {
+        setLoading(false);
+      }
     }, 1500);
   };
 
-  const handleBlacklist = (email: string) => {
+  const handleBlacklist = async (email: string) => {
     if (window.confirm(`Cast out ${email} from the Sanctuary?`)) {
-      storageService.addToBlacklist(email);
-      refreshData();
+      try {
+        await authService.addToBlacklist(email);
+      } catch (error: any) {
+        alert(error?.message || 'Unable to blacklist user.');
+      }
+      await refreshData();
     }
   };
 
-  const handleUnblacklist = (email: string) => {
-    storageService.removeFromBlacklist(email);
-    refreshData();
+  const handleUnblacklist = async (email: string) => {
+    try {
+      await authService.removeFromBlacklist(email);
+    } catch (error: any) {
+      alert(error?.message || 'Unable to remove from blacklist.');
+    }
+    await refreshData();
   };
 
-  const handleSaveDB = (key: string, value: string) => {
-    if (storageService.updateRawData(key, value)) {
-      refreshData();
+  const handleRoleToggle = async (userId: string, currentRole: Role) => {
+    try {
+      const nextRole = currentRole === Role.Admin ? Role.User : Role.Admin;
+      await authService.updateUserRole(userId, nextRole);
+      await refreshData();
+    } catch (error: any) {
+      alert(error?.message || 'Unable to update role.');
+    }
+  };
+
+  const handleSaveDB = async (key: string, value: string) => {
+    if (await storageService.updateRawData(key, value)) {
+      await refreshData();
       alert('Scroll Updated.');
     } else {
       alert('Invalid Format.');
@@ -240,6 +268,21 @@ const AdminPipelineScreen: React.FC<{ onRefine: (c: GeneratedContent) => void }>
 
   const toggleSchedFormat = (f: Format) => {
     setSchedFormats(prev => prev.includes(f) ? prev.filter(x => x !== f) : [...prev, f]);
+  };
+
+  const scrollTabs = (direction: 'left' | 'right') => {
+    const node = tabsScrollRef.current;
+    if (!node) return;
+    const amount = 220;
+    node.scrollBy({ left: direction === 'left' ? -amount : amount, behavior: 'smooth' });
+  };
+
+  const actionLabel: Record<string, string> = {
+    role_changed: 'Role Changed',
+    blacklist_added: 'Blacklisted',
+    blacklist_removed: 'Unblacklisted',
+    published_created: 'Published',
+    published_deleted: 'Unpublished',
   };
 
   // --- UI Components ---
@@ -258,7 +301,7 @@ const AdminPipelineScreen: React.FC<{ onRefine: (c: GeneratedContent) => void }>
       {/* Refinement Modal */}
       {refiningItem && (
         <div className="fixed inset-0 z-[110] bg-black/80 backdrop-blur-md flex items-end justify-center p-4">
-          <div className="w-full max-w-md bg-surface-dark border border-white/10 rounded-[40px] p-8 space-y-8 animate-in slide-in-from-bottom-10">
+          <div className="w-full max-w-md bg-surface-dark border border-white/10 rounded-3xl p-8 space-y-8 animate-in slide-in-from-bottom-10">
             <div className="flex justify-between items-center">
               <h3 className="text-xl font-bold font-jakarta">Divine Refinement</h3>
               <button onClick={() => setRefiningItem(null)} className="size-10 rounded-full bg-white/5 flex items-center justify-center"><span className="material-symbols-outlined">close</span></button>
@@ -279,38 +322,88 @@ const AdminPipelineScreen: React.FC<{ onRefine: (c: GeneratedContent) => void }>
           <button onClick={() => navigate('/home')} className="size-10 rounded-xl bg-white/5 flex items-center justify-center"><span className="material-symbols-outlined">arrow_back</span></button>
           <div>
             <h2 className="text-lg font-bold font-jakarta leading-none">Command Center</h2>
-            <p className="text-[8px] font-black uppercase tracking-[0.3em] text-primary mt-1.5">Apostolic Authority</p>
+            <p className="text-[9px] font-semibold tracking-[0.12em] text-primary/80 mt-1.5">Admin Workspace</p>
           </div>
         </div>
         <div className="size-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary"><span className="material-symbols-outlined">admin_panel_settings</span></div>
       </header>
 
-      <nav className="flex p-4 bg-surface-dark/30 border-b border-white/5 gap-3 overflow-x-auto no-scrollbar shrink-0">
-        {[
-          { id: 'ai_center', label: 'AI Center', icon: 'spark' },
-          { id: 'studio', label: 'Studio', icon: 'auto_fix' },
-          { id: 'media', label: 'Media Lab', icon: 'movie' },
-          { id: 'scheduler', label: 'Scheduler', icon: 'calendar_month' },
-          { id: 'pipeline', label: 'Pipeline', icon: 'playlist_add_check' },
-          { id: 'archive', label: 'Archive', icon: 'inventory_2' },
-          { id: 'registry', label: 'Registry', icon: 'group' },
-          { id: 'database', label: 'Database', icon: 'database' },
-          { id: 'help', label: 'Help', icon: 'help' }
-        ].map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id as AdminTab)}
-            className={`flex items-center gap-2.5 px-6 py-4 rounded-[20px] text-[10px] font-black uppercase tracking-widest transition-all shrink-0 ${activeTab === tab.id ? 'bg-primary text-white shadow-lg' : 'text-slate-500 hover:bg-white/5'}`}
-          >
-            <span className="material-symbols-outlined text-[18px]">{tab.icon}</span>
-            {tab.label}
-          </button>
-        ))}
-      </nav>
+      <div className="bg-surface-dark/30 border-b border-white/5 p-4 flex items-center gap-3">
+        <button
+          onClick={() => scrollTabs('left')}
+          className="shrink-0 size-10 rounded-xl bg-white/5 border border-white/10 text-slate-300 hover:text-white hover:bg-white/10 transition-colors"
+          aria-label="Scroll tabs left"
+        >
+          <span className="material-symbols-outlined">chevron_left</span>
+        </button>
+        <nav ref={tabsScrollRef} className="flex gap-3 overflow-x-auto no-scrollbar shrink-0 flex-1">
+          {[
+            { id: 'ai_center', label: 'AI Center', icon: 'spark' },
+            { id: 'studio', label: 'Studio', icon: 'auto_fix' },
+            { id: 'media', label: 'Media Lab', icon: 'movie' },
+            { id: 'scheduler', label: 'Scheduler', icon: 'calendar_month' },
+            { id: 'pipeline', label: 'Pipeline', icon: 'playlist_add_check' },
+            { id: 'archive', label: 'Archive', icon: 'inventory_2' },
+            { id: 'registry', label: 'Registry', icon: 'group' },
+            { id: 'database', label: 'Database', icon: 'database' },
+            { id: 'audit', label: 'Audit', icon: 'history' },
+            { id: 'help', label: 'Help', icon: 'help' }
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as AdminTab)}
+              className={`flex items-center gap-2.5 px-5 py-3.5 rounded-2xl text-[11px] font-semibold tracking-[0.08em] transition-all shrink-0 ${activeTab === tab.id ? 'bg-primary text-white shadow-lg' : 'bg-white/0 text-slate-400 hover:text-white hover:bg-white/5'}`}
+            >
+              <span className="material-symbols-outlined text-[18px]">{tab.icon}</span>
+              {tab.label}
+            </button>
+          ))}
+        </nav>
+        <button
+          onClick={() => scrollTabs('right')}
+          className="shrink-0 size-10 rounded-xl bg-white/5 border border-white/10 text-slate-300 hover:text-white hover:bg-white/10 transition-colors"
+          aria-label="Scroll tabs right"
+        >
+          <span className="material-symbols-outlined">chevron_right</span>
+        </button>
+      </div>
 
-      <main className="flex-1 p-6 space-y-12 max-w-lg mx-auto w-full overflow-y-auto">
+      <section className="px-6 pt-5 max-w-lg mx-auto w-full">
+        <div className="grid grid-cols-2 gap-4">
+          <div className="rounded-[24px] border border-white/10 bg-surface-dark/50 p-5">
+            <p className="text-[9px] font-black uppercase tracking-[0.25em] text-slate-500">Live Published</p>
+            <p className="mt-2 text-3xl font-bold text-white">{savedDevotionals.length}</p>
+            <p className="mt-2 text-[10px] text-slate-400">Visible on Home, Feed and Featured Series</p>
+          </div>
+          <div className="rounded-[24px] border border-white/10 bg-surface-dark/50 p-5">
+            <p className="text-[9px] font-black uppercase tracking-[0.25em] text-slate-500">Awaiting Release</p>
+            <p className="mt-2 text-3xl font-bold text-white">{pipeline.filter((item) => item.status === PipelineStatus.Approved).length}</p>
+            <p className="mt-2 text-[10px] text-slate-400">Approved and ready to publish</p>
+          </div>
+        </div>
+        <div className="mt-4 flex gap-2 overflow-x-auto no-scrollbar">
+          {[
+            { label: 'Publish Queue', tab: 'pipeline' as AdminTab, icon: 'playlist_add_check' },
+            { label: 'Live Content', tab: 'archive' as AdminTab, icon: 'inventory_2' },
+            { label: 'AI Center', tab: 'ai_center' as AdminTab, icon: 'spark' },
+            { label: 'Users', tab: 'registry' as AdminTab, icon: 'group' },
+            { label: 'Audit', tab: 'audit' as AdminTab, icon: 'history' },
+          ].map((item) => (
+            <button
+              key={item.tab}
+              onClick={() => setActiveTab(item.tab)}
+              className={`shrink-0 flex items-center gap-2 rounded-full border px-4 py-2 text-[10px] font-black uppercase tracking-[0.18em] transition-all ${activeTab === item.tab ? 'bg-primary border-primary text-white' : 'bg-surface-dark/50 border-white/10 text-slate-400 hover:text-white'}`}
+            >
+              <span className="material-symbols-outlined text-sm">{item.icon}</span>
+              {item.label}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <main className="flex-1 p-6 space-y-8 max-w-lg mx-auto w-full overflow-y-auto">
         {activeTab === 'ai_center' && (
-          <div className="space-y-10 animate-in fade-in duration-700">
+          <div className="space-y-6 animate-in fade-in duration-700">
              <div className="space-y-1">
               <h3 className="text-2xl font-bold font-jakarta">AI Command Center</h3>
               <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.3em]">Harnessing Superior Modalities</p>
@@ -334,7 +427,7 @@ const AdminPipelineScreen: React.FC<{ onRefine: (c: GeneratedContent) => void }>
               ))}
             </div>
 
-            <div className="space-y-8 bg-surface-dark border border-white/5 p-8 rounded-[40px] shadow-3xl">
+            <div className="space-y-8 bg-surface-dark border border-white/5 p-8 rounded-3xl shadow-3xl">
               {aiCenterTab === 'pro_image' && (
                 <>
                   <div className="space-y-4">
@@ -408,7 +501,7 @@ const AdminPipelineScreen: React.FC<{ onRefine: (c: GeneratedContent) => void }>
                      <img src={aiResult} className="w-full rounded-2xl shadow-3xl" />
                    )}
                    <div className="flex gap-4">
-                     <button onClick={() => { storageService.saveDevotional({ title: 'AI Center Harvest', bibleVerse: 'Proverbs 1:5', devotionalMessage: 'Generated via Command Center', practicalApplication: '', callToAction: '', imageUrl: aiCenterTab !== 'veo_studio' ? aiResult : undefined, videoUrl: aiCenterTab === 'veo_studio' ? aiResult : undefined }); alert('Saved to Library'); }} className="flex-1 py-4 border border-white/10 rounded-2xl text-[10px] font-black uppercase">Archive</button>
+                     <button onClick={async () => { try { await storageService.savePublishedContent({ title: 'AI Center Harvest', bibleVerse: 'Proverbs 1:5', devotionalMessage: 'Generated via Command Center', practicalApplication: '', callToAction: '', imageUrl: aiCenterTab !== 'veo_studio' ? aiResult : undefined, videoUrl: aiCenterTab === 'veo_studio' ? aiResult : undefined, format: aiCenterTab === 'veo_studio' ? Format.VideoScript : Format.ImagePrompt }, 'ai_center'); await refreshData(); alert('Published to Feed'); } catch { alert('Publish failed'); } }} className="flex-1 py-4 border border-white/10 rounded-2xl text-[10px] font-black uppercase">Publish</button>
                      <button onClick={() => { setAiResult(null); setMediaPrompt(''); setUploadedImage(null); }} className="flex-1 py-4 bg-white/5 rounded-2xl text-[10px] font-black uppercase">Reset Lab</button>
                    </div>
                 </div>
@@ -418,7 +511,7 @@ const AdminPipelineScreen: React.FC<{ onRefine: (c: GeneratedContent) => void }>
         )}
 
         {activeTab === 'studio' && (
-          <div className="space-y-10 animate-in fade-in duration-700">
+          <div className="space-y-6 animate-in fade-in duration-700">
             <div className="space-y-1">
               <h3 className="text-2xl font-bold font-jakarta">Divine Studio</h3>
               <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.3em]">Direct revelation generator</p>
@@ -443,7 +536,7 @@ const AdminPipelineScreen: React.FC<{ onRefine: (c: GeneratedContent) => void }>
         )}
 
         {activeTab === 'media' && (
-          <div className="space-y-10 animate-in fade-in duration-700">
+          <div className="space-y-6 animate-in fade-in duration-700">
             <div className="space-y-1">
               <h3 className="text-2xl font-bold font-jakarta">Media Lab</h3>
               <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.3em]">Cinematic visual orchestration</p>
@@ -457,7 +550,7 @@ const AdminPipelineScreen: React.FC<{ onRefine: (c: GeneratedContent) => void }>
             <textarea 
               value={mediaPrompt} 
               onChange={e => setMediaPrompt(e.target.value)}
-              className="w-full bg-surface-dark border border-white/5 rounded-[32px] p-8 text-base outline-none min-h-[200px]"
+              className="w-full bg-surface-dark border border-white/5 rounded-2xl p-8 text-base outline-none min-h-[200px]"
               placeholder={mediaTab === 'image' ? "Describe the sacred vision..." : "Animate the testimony..."}
             />
             
@@ -475,16 +568,16 @@ const AdminPipelineScreen: React.FC<{ onRefine: (c: GeneratedContent) => void }>
             </button>
 
             {mediaImage && (
-              <div className="p-8 bg-surface-dark border border-white/5 rounded-[40px] space-y-6">
+              <div className="p-8 bg-surface-dark border border-white/5 rounded-3xl space-y-6">
                 {mediaTab === 'image' ? <img src={mediaImage} className="w-full rounded-2xl shadow-3xl" /> : <video src={mediaImage} controls className="w-full rounded-2xl shadow-3xl" />}
-                <button onClick={() => { storageService.saveDevotional({ title: 'Sacred Render', bibleVerse: 'Genesis 1:1', devotionalMessage: 'Media Lab Output', practicalApplication: '', callToAction: '', imageUrl: mediaTab === 'image' ? mediaImage : undefined, videoUrl: mediaTab === 'video' ? mediaImage : undefined }); alert('Saved to Library'); }} className="w-full py-4 text-primary text-[10px] font-black uppercase">Sanctify & Archive</button>
+                <button onClick={async () => { try { await storageService.savePublishedContent({ title: 'Sacred Render', bibleVerse: 'Genesis 1:1', devotionalMessage: 'Media Lab Output', practicalApplication: '', callToAction: '', imageUrl: mediaTab === 'image' ? mediaImage : undefined, videoUrl: mediaTab === 'video' ? mediaImage : undefined, format: mediaTab === 'video' ? Format.VideoScript : Format.ImagePrompt }, 'media_lab'); await refreshData(); alert('Published to Feed'); } catch { alert('Publish failed'); } }} className="w-full py-4 text-primary text-[10px] font-black uppercase">Publish to Feed</button>
               </div>
             )}
           </div>
         )}
 
         {activeTab === 'scheduler' && (
-          <div className="space-y-10 animate-in fade-in duration-700">
+          <div className="space-y-6 animate-in fade-in duration-700">
             <div className="flex items-center justify-between">
               <div className="space-y-1">
                 <h3 className="text-2xl font-bold font-jakarta">Scheduler</h3>
@@ -494,7 +587,7 @@ const AdminPipelineScreen: React.FC<{ onRefine: (c: GeneratedContent) => void }>
             </div>
 
             {showAddSched && (
-              <div className="bg-surface-dark border border-white/5 p-8 rounded-[40px] space-y-8 animate-in slide-in-from-top-4">
+              <div className="bg-surface-dark border border-white/5 p-8 rounded-3xl space-y-8 animate-in slide-in-from-top-4">
                 <input type="date" value={schedDate} onChange={e => setSchedDate(e.target.value)} className="w-full bg-background-dark border border-white/5 rounded-2xl p-5 text-sm" />
                 <select value={schedTheme} onChange={e => setSchedTheme(e.target.value as Theme)} className="w-full bg-background-dark border border-white/5 rounded-2xl p-5 text-sm">
                   {Object.values(Theme).map(t => <option key={t} value={t}>{t}</option>)}
@@ -506,10 +599,10 @@ const AdminPipelineScreen: React.FC<{ onRefine: (c: GeneratedContent) => void }>
                   ))}
                 </div>
                 <button 
-                  onClick={() => {
-                    storageService.saveCalendarEntry({ id: Math.random().toString(36).substr(2,9), date: schedDate, theme: schedTheme, verse: studioVerse || 'Psalm 23', requestedFormats: schedFormats });
+                  onClick={async () => {
+                    await storageService.saveCalendarEntry({ id: Math.random().toString(36).substr(2,9), date: schedDate, theme: schedTheme, verse: studioVerse || 'Psalm 23', requestedFormats: schedFormats });
                     setShowAddSched(false);
-                    refreshData();
+                    await refreshData();
                   }}
                   className="w-full bg-primary py-6 rounded-3xl text-[11px] font-black uppercase"
                 >
@@ -520,13 +613,13 @@ const AdminPipelineScreen: React.FC<{ onRefine: (c: GeneratedContent) => void }>
 
             <div className="space-y-6">
               {calendar.map(entry => (
-                <div key={entry.id} className="bg-surface-dark border border-white/5 p-8 rounded-[40px] space-y-6 hover:border-primary/20 transition-all">
+                <div key={entry.id} className="bg-surface-dark border border-white/5 p-8 rounded-3xl space-y-6 hover:border-primary/20 transition-all">
                   <div className="flex justify-between items-start">
                     <div>
                       <h4 className="text-lg font-bold font-jakarta">{new Date(entry.date).toLocaleDateString()}</h4>
                       <p className="text-[10px] font-black uppercase text-primary tracking-widest">{entry.theme}</p>
                     </div>
-                    <button onClick={() => { storageService.deleteCalendarEntry(entry.id); refreshData(); }} className="text-slate-600"><span className="material-symbols-outlined">delete</span></button>
+                    <button onClick={async () => { await storageService.deleteCalendarEntry(entry.id); await refreshData(); }} className="text-slate-600"><span className="material-symbols-outlined">delete</span></button>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {entry.requestedFormats.map(f => <span key={f} className="text-[8px] font-black uppercase px-2 py-1 bg-white/5 rounded-lg text-slate-500">{f}</span>)}
@@ -539,7 +632,7 @@ const AdminPipelineScreen: React.FC<{ onRefine: (c: GeneratedContent) => void }>
         )}
 
         {activeTab === 'pipeline' && (
-          <div className="space-y-10 animate-in fade-in duration-700">
+          <div className="space-y-6 animate-in fade-in duration-700">
             <div className="space-y-1">
               <h3 className="text-2xl font-bold font-jakarta">Prophetic Pipeline</h3>
               <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.3em]">Curating for the congregation</p>
@@ -548,10 +641,10 @@ const AdminPipelineScreen: React.FC<{ onRefine: (c: GeneratedContent) => void }>
             <div className="space-y-8">
               {pipeline.length === 0 && <div className="py-20 text-center opacity-30 text-[10px] font-black uppercase tracking-[0.5em]">Pipeline Empty</div>}
               {pipeline.map(item => (
-                <div key={item.id} className="bg-surface-dark border border-white/5 p-8 rounded-[48px] space-y-8 shadow-3xl">
+                <div key={item.id} className="bg-surface-dark border border-white/5 p-8 rounded-3xl space-y-8 shadow-3xl">
                   <div className="flex justify-between items-center">
                     <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest ${item.status === PipelineStatus.Ready ? 'bg-green-500/10 text-green-500 border border-green-500/20' : 'bg-amber-500/10 text-amber-500 border border-amber-500/20'}`}>{item.status}</span>
-                    <button onClick={() => { storageService.deletePipelineItem(item.id); refreshData(); }} className="text-slate-600"><span className="material-symbols-outlined">close</span></button>
+                    <button onClick={async () => { await storageService.deletePipelineItem(item.id); await refreshData(); }} className="text-slate-600"><span className="material-symbols-outlined">close</span></button>
                   </div>
                   <div className="space-y-2">
                     <h4 className="text-xl font-bold font-jakarta">{item.content.title}</h4>
@@ -582,14 +675,14 @@ const AdminPipelineScreen: React.FC<{ onRefine: (c: GeneratedContent) => void }>
         )}
 
         {activeTab === 'archive' && (
-          <div className="space-y-10 animate-in fade-in duration-700">
+          <div className="space-y-6 animate-in fade-in duration-700">
              <div className="space-y-1">
               <h3 className="text-2xl font-bold font-jakarta">Sanctified Library</h3>
               <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.3em]">Treasury of wisdom</p>
             </div>
             <div className="grid grid-cols-2 gap-4">
               {savedDevotionals.map((item, i) => (
-                <div key={i} onClick={() => onRefine(item)} className="aspect-square bg-surface-dark border border-white/5 rounded-[40px] p-8 flex flex-col justify-end group active:scale-95 transition-all">
+                <div key={i} onClick={() => onRefine(item)} className="aspect-square bg-surface-dark border border-white/5 rounded-3xl p-8 flex flex-col justify-end group active:scale-95 transition-all">
                    <p className="text-white font-bold text-sm line-clamp-2 leading-tight mb-2">{item.title}</p>
                    <p className="text-primary text-[9px] font-black uppercase tracking-widest opacity-60">{item.format || 'Word'}</p>
                 </div>
@@ -599,7 +692,7 @@ const AdminPipelineScreen: React.FC<{ onRefine: (c: GeneratedContent) => void }>
         )}
 
         {activeTab === 'registry' && (
-          <div className="space-y-10 animate-in fade-in duration-700">
+          <div className="space-y-6 animate-in fade-in duration-700">
              <div className="space-y-1">
               <h3 className="text-2xl font-bold font-jakarta">Registry</h3>
               <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.3em]">Member management</p>
@@ -607,7 +700,7 @@ const AdminPipelineScreen: React.FC<{ onRefine: (c: GeneratedContent) => void }>
             
             <section className="space-y-6">
               <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-600">Active Sanctuary</h4>
-              <div className="bg-surface-dark border border-white/5 rounded-[32px] overflow-hidden">
+              <div className="bg-surface-dark border border-white/5 rounded-2xl overflow-hidden">
                 {users.map(u => (
                   <div key={u.id} className="p-6 border-b border-white/5 flex items-center justify-between group">
                     <div className="flex items-center gap-4">
@@ -617,9 +710,19 @@ const AdminPipelineScreen: React.FC<{ onRefine: (c: GeneratedContent) => void }>
                         <p className="text-[9px] uppercase font-black text-slate-500 mt-1">{u.role}</p>
                       </div>
                     </div>
-                    {u.email !== MASTER_ADMIN_EMAIL && (
-                      <button onClick={() => handleBlacklist(u.email)} className="text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><span className="material-symbols-outlined">person_off</span></button>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {u.email !== MASTER_ADMIN_EMAIL && (
+                        <button
+                          onClick={() => handleRoleToggle(u.id, u.role)}
+                          className="rounded-lg border border-white/10 px-3 py-1.5 text-[9px] font-black uppercase tracking-widest text-slate-300 hover:text-white"
+                        >
+                          {u.role === Role.Admin ? 'Demote' : 'Promote'}
+                        </button>
+                      )}
+                      {u.email !== MASTER_ADMIN_EMAIL && (
+                        <button onClick={() => handleBlacklist(u.email)} className="text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><span className="material-symbols-outlined">person_off</span></button>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -641,7 +744,7 @@ const AdminPipelineScreen: React.FC<{ onRefine: (c: GeneratedContent) => void }>
         )}
 
         {activeTab === 'database' && (
-          <div className="space-y-10 animate-in fade-in duration-700">
+          <div className="space-y-6 animate-in fade-in duration-700">
              <div className="space-y-1">
               <h3 className="text-2xl font-bold font-jakarta">Database</h3>
               <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.3em]">Raw scroll inspector</p>
@@ -662,13 +765,13 @@ const AdminPipelineScreen: React.FC<{ onRefine: (c: GeneratedContent) => void }>
         )}
 
         {activeTab === 'help' && (
-          <div className="space-y-12 animate-in fade-in duration-700 pb-20">
+          <div className="space-y-8 animate-in fade-in duration-700 pb-20">
              <div className="space-y-1">
               <h3 className="text-2xl font-bold font-jakarta">Command Center Manual</h3>
               <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.3em]">Mastering Apostolic Tools</p>
             </div>
 
-            <div className="space-y-10">
+            <div className="space-y-6">
               <section className="space-y-4">
                 <div className="flex items-center gap-4">
                   <span className="material-symbols-outlined text-primary">spark</span>
@@ -701,6 +804,48 @@ const AdminPipelineScreen: React.FC<{ onRefine: (c: GeneratedContent) => void }>
                   </li>
                 </ul>
               </section>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'audit' && (
+          <div className="space-y-6 animate-in fade-in duration-700">
+            <div className="space-y-1">
+              <h3 className="text-2xl font-bold font-jakarta">Audit Trail</h3>
+              <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.3em]">Who changed what and when</p>
+            </div>
+            <div className="overflow-x-auto rounded-2xl border border-white/10 bg-surface-dark/50">
+              <table className="w-full min-w-[760px] text-left">
+                <thead className="border-b border-white/10 bg-background-dark/50">
+                  <tr>
+                    {['Time', 'Actor', 'Action', 'Target', 'Details'].map((head) => (
+                      <th key={head} className="px-4 py-3 text-[9px] font-black uppercase tracking-[0.24em] text-slate-500">
+                        {head}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {auditLogs.map((log) => (
+                    <tr key={log.id} className="border-b border-white/5">
+                      <td className="px-4 py-3 text-xs text-slate-300">{new Date(log.at).toLocaleString()}</td>
+                      <td className="px-4 py-3 text-xs text-white">{log.actorEmail}</td>
+                      <td className="px-4 py-3 text-xs text-primary">{actionLabel[log.action] || log.action}</td>
+                      <td className="px-4 py-3 text-xs text-slate-300">{log.target || '-'}</td>
+                      <td className="px-4 py-3 text-xs text-slate-400">
+                        {log.previousRole && log.newRole ? `${log.previousRole} -> ${log.newRole}` : log.source ? `source: ${log.source}` : log.entityType || '-'}
+                      </td>
+                    </tr>
+                  ))}
+                  {auditLogs.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="px-4 py-12 text-center text-[10px] font-black uppercase tracking-[0.25em] text-slate-500">
+                        No audit events yet
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         )}

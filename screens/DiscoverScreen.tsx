@@ -1,6 +1,9 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { GeneratedContent, Theme, Format } from '../types';
+import { getFeaturedSeries } from '../content/spiritualContent';
+import { storageService } from '../storageService';
 
 enum ContentType {
   ShortMessage = 'Short Message',
@@ -159,8 +162,18 @@ interface Props {
 }
 
 const DiscoverScreen: React.FC<Props> = ({ onSelectItem }) => {
+  const navigate = useNavigate();
+  const [, setDataVersion] = useState(0);
   const [activeTheme, setActiveTheme] = useState<Theme | 'All'>('All');
   const [searchQuery, setSearchQuery] = useState('');
+  const featuredSeries = getFeaturedSeries();
+
+  useEffect(() => {
+    void storageService.syncData().finally(() => setDataVersion((v) => v + 1));
+    const onSync = () => setDataVersion((v) => v + 1);
+    window.addEventListener('devotional:data-sync', onSync);
+    return () => window.removeEventListener('devotional:data-sync', onSync);
+  }, []);
 
   const themes = ['All', ...Object.values(Theme)];
 
@@ -191,26 +204,38 @@ const DiscoverScreen: React.FC<Props> = ({ onSelectItem }) => {
         <section className="space-y-4">
           <div className="px-4 flex items-center justify-between">
             <h3 className="text-lg font-bold font-jakarta">Featured Series</h3>
+            <button
+              onClick={() => navigate('/featured-series')}
+              className="text-[10px] font-black uppercase tracking-[0.2em] text-primary bg-primary/10 px-3 py-2 rounded-full border border-primary/20"
+            >
+              View Page
+            </button>
           </div>
           <div className="flex gap-4 overflow-x-auto no-scrollbar px-4">
-            {MOCK_FEED.map((item) => (
+            {featuredSeries.map((series) => (
               <div 
-                key={item.id} 
-                onClick={() => item.fullContent && onSelectItem(item.fullContent)}
+                key={series.id}
+                onClick={() => navigate(`/featured-series/${series.id}`)}
                 className="shrink-0 w-72 rounded-2xl bg-surface-dark border border-white/5 overflow-hidden active:scale-95 transition-transform group"
               >
                 <div className="aspect-[16/10] relative">
-                  <img src={item.imageUrl} className="w-full h-full object-cover opacity-80" alt={item.title} />
+                  <img src={series.coverImageUrl} className="w-full h-full object-cover opacity-80" alt={series.title} />
                   <button className="absolute top-4 right-4 z-20 size-8 rounded-full glass border border-white/10 flex items-center justify-center text-white/60 hover:text-white transition-all">
                     <span className="material-symbols-outlined text-lg">more_vert</span>
                   </button>
                 </div>
                 <div className="p-6">
-                  <h4 className="text-white font-bold text-base mb-2 group-hover:text-primary transition-colors">{item.title}</h4>
-                  <p className="text-slate-500 text-xs line-clamp-2">{item.preview}</p>
+                  <h4 className="text-white font-bold text-base mb-2 group-hover:text-primary transition-colors">{series.title}</h4>
+                  <p className="text-slate-500 text-xs line-clamp-2">{series.description}</p>
                 </div>
               </div>
             ))}
+            {featuredSeries.length === 0 && (
+              <div className="w-full rounded-2xl border border-dashed border-white/10 bg-surface-dark/40 p-8 text-center">
+                <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-500">No series yet</p>
+                <p className="mt-3 text-xs text-slate-400">Featured series appear after admin publishes content.</p>
+              </div>
+            )}
           </div>
         </section>
 

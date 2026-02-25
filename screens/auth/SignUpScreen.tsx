@@ -35,7 +35,7 @@ const SignUpScreen: React.FC = () => {
     try {
       const result = await authService.signUp(email, password);
       if (result.success) {
-        setSuccess('Account created! Please verify your email using code: VERIFY-777');
+        setSuccess('Account created. Verifying email...');
         setTimeout(async () => {
           await authService.verifyEmail(email);
           navigate('/signin');

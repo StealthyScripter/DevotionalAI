@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { HashRouter as Router, Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import LandingScreen from './screens/LandingScreen';
 import HomeScreen from './screens/HomeScreen';
 import DiscoverScreen from './screens/DiscoverScreen';
@@ -9,12 +9,18 @@ import PreviewScreen from './screens/PreviewScreen';
 import SettingsScreen from './screens/SettingsScreen';
 import ChatScreen from './screens/ChatScreen';
 import AdminPipelineScreen from './screens/AdminPipelineScreen';
+import FeedDetailScreen from './screens/FeedDetailScreen';
+import FeaturedSeriesScreen from './screens/FeaturedSeriesScreen';
+import FeaturedSeriesDetailScreen from './screens/FeaturedSeriesDetailScreen';
+import FeaturedEpisodeScreen from './screens/FeaturedEpisodeScreen';
+import MeditationScreen from './screens/MeditationScreen';
 import SignInScreen from './screens/auth/SignInScreen';
 import SignUpScreen from './screens/auth/SignUpScreen';
 import TwoFactorScreen from './screens/auth/TwoFactorScreen';
 import ForgotPasswordScreen from './screens/auth/ForgotPasswordScreen';
 import { GeneratedContent, AuthSession, Role } from './types';
 import { authService } from './authService';
+import { storageService } from './storageService';
 
 function ProtectedRoute({ children }: { children?: React.ReactNode }) {
   const session = authService.getSession();
@@ -47,6 +53,8 @@ function AppContent() {
   }, []);
 
   useEffect(() => {
+    void storageService.ensureSeedData();
+    void authService.refreshSession().then(syncSession);
     window.addEventListener('storage', syncSession);
     const interval = setInterval(syncSession, 2000);
     return () => {
@@ -54,6 +62,11 @@ function AppContent() {
       clearInterval(interval);
     };
   }, [syncSession]);
+
+  useEffect(() => {
+    if (!session) return;
+    void storageService.initializeSessionData();
+  }, [session?.user.id]);
 
   const viewContent = (content: GeneratedContent) => {
     setSelectedContent(content);
@@ -72,10 +85,15 @@ function AppContent() {
           <Route path="/signup" element={<SignUpScreen />} />
           <Route path="/verify-2fa" element={<TwoFactorScreen onLoginSuccess={syncSession} />} />
           <Route path="/forgot-password" element={<ForgotPasswordScreen />} />
-          <Route path="/home" element={<ProtectedRoute><HomeScreen onViewMessage={viewContent} /></ProtectedRoute>} />
+          <Route path="/home" element={<ProtectedRoute><HomeScreen /></ProtectedRoute>} />
           <Route path="/discover" element={<ProtectedRoute><DiscoverScreen onSelectItem={viewContent} /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><ProfileScreen onSelectSaved={viewContent} /></ProtectedRoute>} />
           <Route path="/preview" element={<ProtectedRoute><PreviewScreen content={selectedContent} /></ProtectedRoute>} />
+          <Route path="/feed/:id" element={<ProtectedRoute><FeedDetailScreen /></ProtectedRoute>} />
+          <Route path="/meditation" element={<ProtectedRoute><MeditationScreen /></ProtectedRoute>} />
+          <Route path="/featured-series" element={<ProtectedRoute><FeaturedSeriesScreen /></ProtectedRoute>} />
+          <Route path="/featured-series/:seriesId" element={<ProtectedRoute><FeaturedSeriesDetailScreen /></ProtectedRoute>} />
+          <Route path="/featured-series/:seriesId/:episodeId" element={<ProtectedRoute><FeaturedEpisodeScreen /></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><SettingsScreen /></ProtectedRoute>} />
           <Route path="/chat" element={<ProtectedRoute><ChatScreen /></ProtectedRoute>} />
           <Route path="/admin" element={<AdminRoute><AdminPipelineScreen onRefine={viewContent} /></AdminRoute>} />
@@ -83,7 +101,7 @@ function AppContent() {
         </Routes>
       </main>
 
-      {!isAuthPage && location.pathname !== '/preview' && location.pathname !== '/chat' && session && (
+      {!isAuthPage && !location.pathname.startsWith('/preview') && !location.pathname.startsWith('/chat') && !location.pathname.startsWith('/feed/') && !location.pathname.startsWith('/featured-series') && !location.pathname.startsWith('/meditation') && session && (
         <nav className="fixed bottom-0 left-0 right-0 glass z-[100] border-t border-white/5 pb-8 pt-3 max-w-md mx-auto">
           <div className="flex items-end justify-around px-4">
             {[

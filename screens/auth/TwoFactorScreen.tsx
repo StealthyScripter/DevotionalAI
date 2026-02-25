@@ -15,7 +15,7 @@ const TwoFactorScreen: React.FC<Props> = ({ onLoginSuccess }) => {
   const [resending, setResending] = useState(false);
 
   useEffect(() => {
-    if (!sessionStorage.getItem('temp_2fa_code')) {
+    if (!sessionStorage.getItem('temp_2fa_challenge_id')) {
       navigate('/signin');
     }
   }, [navigate]);
@@ -46,13 +46,27 @@ const TwoFactorScreen: React.FC<Props> = ({ onLoginSuccess }) => {
 
   const handleResend = () => {
     setResending(true);
-    const newCode = Math.floor(100000 + Math.random() * 900000).toString();
-    sessionStorage.setItem('temp_2fa_code', newCode);
-    console.log(`[SIMULATED SMS/EMAIL] New 2FA Login Code: ${newCode}`);
-    setTimeout(() => {
+    const challengeId = sessionStorage.getItem('temp_2fa_challenge_id');
+    if (!challengeId) {
       setResending(false);
-      alert('A new code has been sent (check console).');
-    }, 1000);
+      setError('Session expired.');
+      return;
+    }
+
+    fetch('/api/auth/resend-2fa', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ challengeId }),
+    })
+      .then(async (res) => {
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.message || 'Failed to resend code.');
+        }
+        alert('A new code has been sent (dev: check backend logs).');
+      })
+      .catch((err) => setError(err.message || 'Failed to resend code.'))
+      .finally(() => setResending(false));
   };
 
   return (
