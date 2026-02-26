@@ -115,8 +115,8 @@ function AppContent() {
   const isAdmin = session?.user.role === Role.Admin;
 
   return (
-    <div className="flex flex-col min-h-screen max-w-md mx-auto relative bg-background-dark shadow-2xl overflow-x-hidden font-sans selection:bg-primary/30">
-      <main className="flex-1 overflow-y-auto no-scrollbar pb-24">
+    <div className="flex flex-col min-h-screen w-full max-w-md sm:max-w-lg lg:max-w-3xl xl:max-w-5xl mx-auto relative bg-background-dark shadow-2xl overflow-x-hidden font-sans selection:bg-primary/30 lg:min-h-[calc(100vh-2rem)] lg:my-4 lg:rounded-3xl lg:border lg:border-white/10">
+      <main className="flex-1 overflow-y-auto no-scrollbar pb-28 md:pb-24">
         <Routes>
           <Route path="/" element={<LandingScreen />} />
           <Route path="/signin" element={<SignInScreen onLoginSuccess={syncSession} />} />
@@ -140,7 +140,7 @@ function AppContent() {
       </main>
 
       {!isAuthPage && !location.pathname.startsWith('/preview') && !location.pathname.startsWith('/chat') && !location.pathname.startsWith('/feed/') && !location.pathname.startsWith('/featured-series') && !location.pathname.startsWith('/meditation') && session && (
-        <nav className="fixed bottom-0 left-0 right-0 glass z-[100] border-t border-white/5 pb-8 pt-3 max-w-md mx-auto">
+        <nav className="fixed bottom-0 left-0 right-0 glass z-[100] border-t border-white/5 pt-3 pb-[calc(env(safe-area-inset-bottom)+1rem)] md:pb-8 max-w-md sm:max-w-lg lg:max-w-3xl xl:max-w-5xl mx-auto">
           <div className="flex items-end justify-around px-4">
             {[
               { path: '/home', label: 'Home', icon: 'home' },
@@ -151,7 +151,7 @@ function AppContent() {
               <button 
                 key={item.path}
                 onClick={() => navigate(item.path)}
-                className={`flex flex-col items-center gap-1 w-16 transition-colors ${location.pathname === item.path ? 'text-primary' : 'text-white/40'}`}
+                className={`flex flex-col items-center gap-1 w-20 transition-colors ${location.pathname === item.path ? 'text-primary' : 'text-white/40'}`}
               >
                 <span className={`material-symbols-outlined ${location.pathname === item.path ? 'fill-current' : ''}`}>{item.icon}</span>
                 <span className="text-[9px] font-bold uppercase tracking-widest">{item.label}</span>

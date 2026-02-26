@@ -41,7 +41,7 @@ export interface FeaturedSeries {
   }>;
 }
 
-const DEFAULT_HERO_IMAGE = 'https://images.unsplash.com/photo-1438232992991-995b7058bbb3?q=80&w=1200&auto=format&fit=crop';
+const DEFAULT_HERO_IMAGE = '/media/faith-hero.svg';
 
 const DAILY_VERSE_FALLBACK: DailyVerse = {
   verse: 'New content will appear here after admin publishes from Command Center.',

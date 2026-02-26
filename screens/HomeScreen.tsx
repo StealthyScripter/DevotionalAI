@@ -232,7 +232,7 @@ const HomeScreen: React.FC = () => {
             className="relative block w-full overflow-hidden rounded-[28px] border border-white/10 text-left shadow-2xl"
           >
             <img
-              src={heroSeries?.coverImageUrl || 'https://images.unsplash.com/photo-1508672019048-805c876b67e2?q=80&w=1200&auto=format&fit=crop'}
+              src={heroSeries?.coverImageUrl || '/media/faith-2.svg'}
               className="h-56 w-full object-cover"
               alt="Featured series"
             />

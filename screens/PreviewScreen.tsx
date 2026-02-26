@@ -270,7 +270,7 @@ const PreviewScreen: React.FC<Props> = ({ content }) => {
            </section>
         ) : isVideo ? (
           <section className="aspect-video bg-surface-dark flex items-center justify-center relative group overflow-hidden shadow-2xl">
-            <div className="absolute inset-0 bg-cover bg-center opacity-40 grayscale-[0.3] transition-transform duration-[10s] group-hover:scale-110" style={{ backgroundImage: `url('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=800&auto=format&fit=crop')` }}></div>
+            <div className="absolute inset-0 bg-cover bg-center opacity-40 grayscale-[0.3] transition-transform duration-[10s] group-hover:scale-110" style={{ backgroundImage: `url('/media/faith-3.svg')` }}></div>
             <div className="absolute inset-0 bg-gradient-to-t from-background-dark via-transparent to-transparent"></div>
             <button className="size-20 rounded-full glass border border-white/20 flex items-center justify-center text-white relative z-10 transition-transform active:scale-90 shadow-3xl hover:scale-110 group-hover:bg-primary transition-all">
               <span className="material-symbols-outlined text-5xl fill-current ml-1">play_arrow</span>
@@ -278,7 +278,7 @@ const PreviewScreen: React.FC<Props> = ({ content }) => {
           </section>
         ) : (
           <div className="h-72 bg-surface-dark overflow-hidden relative shadow-2xl">
-             <img src="https://images.unsplash.com/photo-1490730141103-6cac27aaab94?q=80&w=1200&auto=format&fit=crop" className="w-full h-full object-cover opacity-50 grayscale-[0.2] animate-pulse-gentle" alt="header" />
+             <img src="/media/faith-hero.svg" className="w-full h-full object-cover opacity-50 grayscale-[0.2] animate-pulse-gentle" alt="header" />
              <div className="absolute inset-0 bg-gradient-to-t from-background-dark via-background-dark/20 to-transparent"></div>
           </div>
         )}
@@ -359,7 +359,7 @@ const PreviewScreen: React.FC<Props> = ({ content }) => {
               {[1, 2, 3].map(i => (
                 <div key={i} className="shrink-0 w-64 space-y-5 group cursor-pointer active:scale-95 transition-all">
                   <div className="aspect-[3/4] bg-surface-dark rounded-[48px] overflow-hidden relative border border-white/5 shadow-3xl">
-                    <img src={`https://images.unsplash.com/photo-${1510000000000 + (i*1234)}?q=80&w=400&auto=format&fit=crop`} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110 opacity-50" alt="related" />
+                    <img src="/media/faith-4.svg" className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110 opacity-50" alt="related" />
                     <div className="absolute inset-0 bg-gradient-to-t from-background-dark via-transparent to-transparent"></div>
                     <div className="absolute bottom-8 left-8 right-8">
                        <p className="text-white font-bold text-base line-clamp-2 leading-tight drop-shadow-md">The Path of the Holy Spirit (Part {i})</p>

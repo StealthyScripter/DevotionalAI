@@ -704,7 +704,7 @@ const AdminPipelineScreen: React.FC<{ onRefine: (c: GeneratedContent) => void }>
                 {users.map(u => (
                   <div key={u.id} className="p-6 border-b border-white/5 flex items-center justify-between group">
                     <div className="flex items-center gap-4">
-                      <div className="size-10 rounded-full bg-cover" style={{ backgroundImage: `url('https://picsum.photos/seed/${u.email}/100/100')` }} />
+                      <div className="size-10 rounded-full bg-cover" style={{ backgroundImage: `url('/media/avatar.svg')` }} />
                       <div>
                         <p className="text-sm font-bold text-white">{u.email}</p>
                         <p className="text-[9px] uppercase font-black text-slate-500 mt-1">{u.role}</p>

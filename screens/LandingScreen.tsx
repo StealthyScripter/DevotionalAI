@@ -10,7 +10,7 @@ const LandingScreen: React.FC = () => {
       <div className="absolute inset-0 z-0">
         <div 
           className="h-full w-full bg-cover bg-center" 
-          style={{ backgroundImage: `linear-gradient(to bottom, rgba(10, 15, 22, 0.2) 0%, rgba(10, 15, 22, 0.8) 50%, rgba(10, 15, 22, 1) 100%), url('https://images.unsplash.com/photo-1490730141103-6cac27aaab94?q=80&w=800&auto=format&fit=crop')` }}
+          style={{ backgroundImage: `linear-gradient(to bottom, rgba(10, 15, 22, 0.2) 0%, rgba(10, 15, 22, 0.8) 50%, rgba(10, 15, 22, 1) 100%), url('/media/faith-hero.svg')` }}
         >
         </div>
       </div>

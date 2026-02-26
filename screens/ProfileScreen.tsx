@@ -94,7 +94,7 @@ const ProfileScreen: React.FC<Props> = ({ onSelectSaved }) => {
              <div className="absolute -bottom-1 -right-1 size-9 rounded-full bg-primary border-4 border-background-dark flex items-center justify-center shadow-lg">
                <span className="material-symbols-outlined text-white text-[14px] font-black">verified</span>
              </div>
-             <div className="w-full h-full rounded-full bg-cover bg-center" style={{ backgroundImage: `url('https://picsum.photos/seed/${userName}/300/300')` }} />
+             <div className="w-full h-full rounded-full bg-cover bg-center" style={{ backgroundImage: `url('/media/avatar.svg')` }} />
           </div>
           <h1 className="text-2xl font-bold font-jakarta capitalize text-white tracking-tight">{userName}</h1>
           <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mt-2 mb-10 opacity-60">{userEmail}</p>
