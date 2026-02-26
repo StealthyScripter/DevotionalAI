@@ -25,10 +25,20 @@ const LandingScreen: React.FC = () => {
       </div>
 
       <div className="relative z-10 flex flex-1 flex-col justify-end px-8 pb-20">
+        <div className="absolute left-8 top-8 flex w-16 flex-col items-center">
+          <img
+            src="/devotionalai-icon.svg"
+            alt="DevotionalAI logo"
+            className="h-16 w-auto drop-shadow-[0_10px_24px_rgba(0,0,0,0.45)]"
+            loading="eager"
+            decoding="async"
+          />
+          <p className="mt-1.5 text-center font-jakarta text-[10px] font-extrabold uppercase leading-none tracking-[0.08em] text-black">
+            DevotionalAI
+          </p>
+        </div>
+
         <div className="mb-8 space-y-4">
-          <div className="size-12 rounded-2xl bg-primary flex items-center justify-center text-white mb-6 glowing-button">
-            <span className="material-symbols-outlined text-3xl">church</span>
-          </div>
           <h1 className="text-white tracking-tight text-[48px] font-display font-bold leading-[1.05]">
             Nourish Your <br/>Spiritual Life
           </h1>

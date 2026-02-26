@@ -36,15 +36,14 @@ const SignUpScreen: React.FC = () => {
       const result = await authService.signUp(email, password);
       if (result.success) {
         setSuccess('Account created. Verifying email...');
-        setTimeout(async () => {
-          await authService.verifyEmail(email);
-          navigate('/signin');
-        }, 3000);
+        await authService.verifyEmail(email);
+        setSuccess('Account verified. Redirecting to sign in...');
+        navigate('/signin');
       } else {
         setError(result.message);
       }
     } catch (err) {
-      setError('Registration failed.');
+      setError('Registration completed but email verification failed. Please try again.');
     } finally {
       setLoading(false);
     }

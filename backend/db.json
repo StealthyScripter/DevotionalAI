@@ -1,0 +1,193 @@
+{
+  "users": [
+    {
+      "id": "master-root-001",
+      "email": "admin@devotional.ai",
+      "passwordHash": "3cf9ffa6aa4e5a2a2832a5927ae766ce:02efe29c30c097c64d18f139dc78d5ec16324a94e2ff385d0c076b30a630efd400a3956917354bd6c6b531ce529ac18d874f51e885d6f1ad3a0b7e66a1b17160",
+      "role": "admin",
+      "isVerified": true,
+      "is2FAEnabled": true,
+      "acceptedTermsAt": 1772014947388,
+      "createdAt": 1772014947388
+    },
+    {
+      "id": "1e454c45e37a5f5e",
+      "email": "name@example.com",
+      "passwordHash": "2ffbe9217695612db92da67b07313c4d:ef1195073ab1ae04e882bf53cc9c508d3038d7ae0504797686109b6dbc65034c8b05aebf4d238beccdc898e1a1102663ab2a2404512e672cc57a7b8e21c7a223",
+      "role": "user",
+      "isVerified": false,
+      "is2FAEnabled": true,
+      "acceptedTermsAt": 1772137593721,
+      "createdAt": 1772137593721
+    },
+    {
+      "id": "31107cb0b58eed12",
+      "email": "name@example1.com",
+      "passwordHash": "b9c9f94b10bed1bf7bb3b9c47a5e1f95:27b2cead83b9693a48d504a7df43fb1f35dc9c5378f81eea5107d135bfc2b68687a0c8161ce542d44c0dfe042dd2e06cb2b97b6cff208cd247514178b8611afa",
+      "role": "user",
+      "isVerified": false,
+      "is2FAEnabled": true,
+      "acceptedTermsAt": 1772137667292,
+      "createdAt": 1772137667292
+    },
+    {
+      "id": "7127fcdfefb45f60",
+      "email": "demo@example.com",
+      "passwordHash": "a3aa5c6699a979ae58d2b130f0fca00a:f777e3d2358b1f479cb9a8fbc40a21717f17d5fdd835eae1bfdac4655ff3b2f6661f964d6b3f2e8d3c2bc1a3964965d8994991f3d07fa8cb35863194b3180711",
+      "role": "user",
+      "isVerified": true,
+      "is2FAEnabled": true,
+      "acceptedTermsAt": 1772138133885,
+      "createdAt": 1772138133885
+    },
+    {
+      "id": "bf631b784f5dfcc9",
+      "email": "demo@dev.com",
+      "passwordHash": "08129bb51beab4b0a414ab092361fc51:ef80758ad41f32053370c37a387976ed302bc0a0a1d9676389da83f7d56525f2c546a240d13d403490bc20f218dca5e7951e216bb6291f560710e1e2440991e3",
+      "role": "user",
+      "isVerified": true,
+      "is2FAEnabled": true,
+      "acceptedTermsAt": 1772139123553,
+      "createdAt": 1772139123553
+    }
+  ],
+  "sessions": [
+    {
+      "id": "11760e85d44c5c65fccdccd8",
+      "userId": "bf631b784f5dfcc9",
+      "token": "eyJzaWQiOiIxMTc2MGU4NWQ0NGM1YzY1ZmNjZGNjZDgiLCJ1aWQiOiJiZjYzMWI3ODRmNWRmY2M5IiwiZXhwIjoxNzcyMjI1Nzc0NDA5fQ.LMtgcZIxCJ-qXTcXDbaOYkPueIOBzCoqem9QnzevsTY",
+      "expiresAt": 1772225774409
+    },
+    {
+      "id": "cdd42d47cf9351c375e05a3a",
+      "userId": "bf631b784f5dfcc9",
+      "token": "eyJzaWQiOiJjZGQ0MmQ0N2NmOTM1MWMzNzVlMDVhM2EiLCJ1aWQiOiJiZjYzMWI3ODRmNWRmY2M5IiwiZXhwIjoxNzcyMjI1OTg0NDY5fQ.PAWJN31g44M3xFGw83noj1AAilTH5lSHrplkZnSiCYQ",
+      "expiresAt": 1772225984469
+    }
+  ],
+  "challenges": [],
+  "blacklist": [],
+  "auditLogs": [],
+  "resetRequests": [],
+  "loginRate": {
+    "admin@devotional.ai:::1": [
+      1772020842272
+    ],
+    "name@example.com:::1": [
+      1772139023070,
+      1772139043831
+    ],
+    "demo@example.com:::1": [
+      1772138152386
+    ],
+    "name@dg.n:::1": [
+      1772138581656
+    ],
+    "demo@dev.com:::1": [
+      1772139365464,
+      1772139577009
+    ]
+  },
+  "saved": [
+    {
+      "id": "c2a61f5b511274c2",
+      "ownerId": "master-root-001",
+      "createdAt": 1772014966004,
+      "content": {
+        "title": "Verse of the Day",
+        "bibleVerse": "Ephesians 2:10",
+        "devotionalMessage": "The Lord is my shepherd; I shall not want. He makes me lie down in green pastures.",
+        "practicalApplication": "Reflect on this message during your quiet time today.",
+        "callToAction": "Apply this wisdom to your current situation.",
+        "format": "SMS Message"
+      }
+    }
+  ],
+  "calendar": [],
+  "pipeline": [],
+  "published": [
+    {
+      "title": "Morning Mercy",
+      "bibleVerse": "Lamentations 3:22-23",
+      "devotionalMessage": "The mercy of God is new this morning. Start today with gratitude, not guilt.",
+      "practicalApplication": "Name three mercies you already received today.",
+      "callToAction": "Begin your day with thanksgiving prayer.",
+      "imageUrl": "https://images.unsplash.com/photo-1438232992991-995b7058bbb3?q=80&w=1200&auto=format&fit=crop",
+      "format": "Social Media Post",
+      "source": "manual",
+      "publishedAtDelta": 7,
+      "id": "seed-1",
+      "ownerId": "master-root-001",
+      "publishedAt": 1771410147388
+    },
+    {
+      "title": "Peace in the Storm",
+      "bibleVerse": "Mark 4:39",
+      "devotionalMessage": "Jesus still speaks peace over every storm and anxious thought.",
+      "practicalApplication": "Pause and pray before reacting to pressure today.",
+      "callToAction": "Trust God before outcomes.",
+      "videoUrl": "https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
+      "imageUrl": "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?q=80&w=1200&auto=format&fit=crop",
+      "format": "Video Script",
+      "source": "manual",
+      "publishedAtDelta": 6,
+      "id": "seed-2",
+      "ownerId": "master-root-001",
+      "publishedAt": 1771496547388
+    },
+    {
+      "title": "Still Waters Reflection",
+      "bibleVerse": "Psalm 23:2",
+      "devotionalMessage": "God leads your soul into stillness, not noise.",
+      "practicalApplication": "Take five quiet minutes with this verse.",
+      "callToAction": "Choose stillness over hurry.",
+      "imageUrl": "https://images.unsplash.com/photo-1444491741275-3747c53c99b4?q=80&w=1200&auto=format&fit=crop",
+      "format": "Image Concept",
+      "source": "manual",
+      "publishedAtDelta": 5,
+      "id": "seed-3",
+      "ownerId": "master-root-001",
+      "publishedAt": 1771582947388
+    },
+    {
+      "title": "Strength Text",
+      "bibleVerse": "Philippians 4:13",
+      "devotionalMessage": "You are not alone today. Grace is enough for this assignment.",
+      "practicalApplication": "Send this encouragement to one friend.",
+      "callToAction": "Speak life with your words.",
+      "format": "SMS Message",
+      "source": "manual",
+      "publishedAtDelta": 4,
+      "id": "seed-4",
+      "ownerId": "master-root-001",
+      "publishedAt": 1771669347388
+    },
+    {
+      "title": "A Short Word on Prayer",
+      "bibleVerse": "1 Thessalonians 5:17",
+      "devotionalMessage": "Prayer is the first response, not the last resort. Daily surrender forms lasting faith.",
+      "practicalApplication": "Pray once before each major task today.",
+      "callToAction": "Build a rhythm of first-response prayer.",
+      "format": "Mini-Sermon",
+      "source": "manual",
+      "publishedAtDelta": 3,
+      "id": "seed-5",
+      "ownerId": "master-root-001",
+      "publishedAt": 1771755747388
+    },
+    {
+      "title": "Built on the Rock",
+      "bibleVerse": "Matthew 7:24-25",
+      "devotionalMessage": "A durable life is built through repeated obedience. Storms reveal foundations, and faithful habits form spiritual resilience over time.",
+      "practicalApplication": "Create a weekly schedule for scripture and prayer.",
+      "callToAction": "Build your life on Christ with consistent obedience.",
+      "format": "Full-Length Sermon",
+      "source": "manual",
+      "imageUrl": "https://images.unsplash.com/photo-1508020963102-c6c723be5764?q=80&w=1200&auto=format&fit=crop",
+      "publishedAtDelta": 2,
+      "id": "seed-6",
+      "ownerId": "master-root-001",
+      "publishedAt": 1771842147388
+    }
+  ]
+}

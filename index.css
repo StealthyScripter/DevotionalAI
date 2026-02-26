@@ -1,0 +1,85 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/forms";
+@plugin "@tailwindcss/container-queries";
+@source "./index.html";
+@source "./*.{js,ts,jsx,tsx}";
+@source "./screens/**/*.{js,ts,jsx,tsx}";
+
+@theme {
+  --color-primary: #136dec;
+  --color-background-dark: #0a0f16;
+  --color-surface-dark: #161e2d;
+  --color-border-dark: #243249;
+
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-serif: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+  --font-display: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+  --font-jakarta: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  --animate-pulse-gentle: pulse-gentle 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  --animate-spin-slow: spin 8s linear infinite;
+  --animate-shimmer: shimmer 2s infinite linear;
+  --animate-float: float 6s ease-in-out infinite;
+
+  @keyframes pulse-gentle {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+  }
+
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+}
+
+@layer base {
+  body {
+    min-height: 100dvh;
+  }
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+  .glass {
+    background: rgba(10, 15, 26, 0.8);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  .glowing-button {
+    box-shadow: 0 0 20px rgba(19, 109, 236, 0.4);
+  }
+
+  .divine-glow {
+    background: radial-gradient(circle, rgba(19, 109, 236, 0.15) 0%, rgba(10, 15, 22, 0) 70%);
+  }
+
+  .mesh-gradient {
+    background-color: #0a0f16;
+    background-image:
+      radial-gradient(at 0% 0%, hsla(215, 85%, 25%, 0.15) 0px, transparent 50%),
+      radial-gradient(at 100% 100%, hsla(215, 85%, 35%, 0.1) 0px, transparent 50%);
+  }
+
+  .shimmer-card {
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.03), transparent);
+    background-size: 200% 100%;
+    animation: shimmer 3s infinite linear;
+  }
+
+  @keyframes bounce-subtle {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-5px); }
+  }
+
+  .animate-bounce-subtle {
+    animation: bounce-subtle 2s ease-in-out infinite;
+  }
+}

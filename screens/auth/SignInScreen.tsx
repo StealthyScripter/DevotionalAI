@@ -16,12 +16,13 @@ const SignInScreen: React.FC<Props> = ({ onLoginSuccess }) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    if (loading) return;
     setLoading(true);
     
     try {
       const result = await authService.signIn(email, password);
       if (result.success) {
+        setError('');
         if (result.requires2FA) {
           navigate('/verify-2fa');
         } else {
@@ -52,7 +53,10 @@ const SignInScreen: React.FC<Props> = ({ onLoginSuccess }) => {
             type="email" 
             required
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) => {
+              if (error) setError('');
+              setEmail(e.target.value);
+            }}
             className="w-full bg-surface-dark border-slate-800 rounded-2xl py-4 px-5 text-white focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none"
             placeholder="name@example.com"
           />
@@ -67,7 +71,10 @@ const SignInScreen: React.FC<Props> = ({ onLoginSuccess }) => {
             type="password" 
             required
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(e) => {
+              if (error) setError('');
+              setPassword(e.target.value);
+            }}
             className="w-full bg-surface-dark border-slate-800 rounded-2xl py-4 px-5 text-white focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none"
             placeholder="••••••••"
           />

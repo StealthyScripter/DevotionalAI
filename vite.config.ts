@@ -7,7 +7,10 @@ export default defineConfig(({ mode }) => {
     return {
       server: {
         port: 3000,
-        host: '0.0.0.0',
+        host: '127.0.0.1',
+        watch: {
+          ignored: ['**/backend/**'],
+        },
         proxy: {
           '/api': {
             target: 'http://localhost:8787',

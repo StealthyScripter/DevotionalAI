@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="DevotionalAI favicon">
+  <defs>
+    <linearGradient id="crossGold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffe7a8"/>
+      <stop offset="45%" stop-color="#f6c65e"/>
+      <stop offset="100%" stop-color="#d89629"/>
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <g transform="translate(256 256)" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M 0 -170 V 182 M -68 -88 H 68" stroke="#ffd57a" stroke-opacity="0.34" stroke-width="40" filter="url(#glow)"/>
+    <path d="M 0 -170 V 182 M -68 -88 H 68" stroke="#5d3e11" stroke-width="28"/>
+    <path d="M 0 -170 V 182 M -68 -88 H 68" stroke="url(#crossGold)" stroke-width="18"/>
+    <path d="M 0 -170 V 182 M -68 -88 H 68" stroke="#fff1c6" stroke-opacity="0.72" stroke-width="5"/>
+  </g>
+
+  <g transform="translate(230 168)" stroke="#fff3d6" stroke-linecap="round">
+    <line x1="-12" y1="0" x2="12" y2="0" stroke-width="3"/>
+    <line x1="0" y1="-12" x2="0" y2="12" stroke-width="3"/>
+    <circle cx="0" cy="0" r="4" fill="#fff9e8" stroke="none"/>
+  </g>
+</svg>
