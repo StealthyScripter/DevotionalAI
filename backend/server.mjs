@@ -12,6 +12,7 @@ const MASTER_ADMIN_EMAIL = (process.env.MASTER_ADMIN_EMAIL || 'admin@devotional.
 const MASTER_ADMIN_PASSWORD = process.env.MASTER_ADMIN_PASSWORD || 'Devotional@2025&Home';
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24;
 const CHALLENGE_TTL_MS = 1000 * 60 * 10;
+const IS_PROD = process.env.NODE_ENV === 'production';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -387,7 +388,12 @@ const server = createServer(async (req, res) => {
         db.challenges.push({ id: challengeId, userId: user.id, code, expiresAt: now() + CHALLENGE_TTL_MS });
         console.log(`[2FA] Login code for ${email}: ${code}`);
         saveDb(db);
-        return send(res, 200, { success: true, requires2FA: true, challengeId });
+        return send(res, 200, {
+          success: true,
+          requires2FA: true,
+          challengeId,
+          ...(IS_PROD ? {} : { devCode: code }),
+        });
       }
 
       const sid = newId(24);
@@ -447,7 +453,7 @@ const server = createServer(async (req, res) => {
       challenge.expiresAt = now() + CHALLENGE_TTL_MS;
       console.log(`[2FA] Resent login code for ${user.email}: ${challenge.code}`);
       saveDb(db);
-      return send(res, 200, { success: true });
+      return send(res, 200, { success: true, ...(IS_PROD ? {} : { devCode: challenge.code }) });
     }
 
     if (req.method === 'GET' && path === '/api/auth/session') {

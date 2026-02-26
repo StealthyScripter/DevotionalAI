@@ -13,6 +13,8 @@ const TwoFactorScreen: React.FC<Props> = ({ onLoginSuccess }) => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
+  const [notice, setNotice] = useState('');
+  const [devCode, setDevCode] = useState<string | null>(() => sessionStorage.getItem('temp_2fa_challenge_id_dev_code'));
 
   useEffect(() => {
     if (!sessionStorage.getItem('temp_2fa_challenge_id')) {
@@ -23,6 +25,7 @@ const TwoFactorScreen: React.FC<Props> = ({ onLoginSuccess }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setNotice('');
     
     if (code.length !== 6) {
       return setError('Code must be 6 digits.');
@@ -44,36 +47,30 @@ const TwoFactorScreen: React.FC<Props> = ({ onLoginSuccess }) => {
     }
   };
 
-  const handleResend = () => {
+  const handleResend = async () => {
+    setError('');
+    setNotice('');
     setResending(true);
-    const challengeId = sessionStorage.getItem('temp_2fa_challenge_id');
-    if (!challengeId) {
+    try {
+      const result = await authService.resend2FA();
+      if (!result.success) {
+        setError(result.message || 'Failed to resend code.');
+        return;
+      }
+      if (result.devCode) {
+        setDevCode(result.devCode);
+      }
+      setNotice('A new verification code has been issued.');
+    } finally {
       setResending(false);
-      setError('Session expired.');
-      return;
     }
-
-    fetch('/api/auth/resend-2fa', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ challengeId }),
-    })
-      .then(async (res) => {
-        if (!res.ok) {
-          const data = await res.json().catch(() => ({}));
-          throw new Error(data.message || 'Failed to resend code.');
-        }
-        alert('A new code has been sent (dev: check backend logs).');
-      })
-      .catch((err) => setError(err.message || 'Failed to resend code.'))
-      .finally(() => setResending(false));
   };
 
   return (
     <div className="min-h-screen bg-background-dark flex flex-col px-8 pt-20">
       <div className="mb-12">
         <h1 className="text-4xl font-display font-bold text-white mb-2">Verify It's You</h1>
-        <p className="text-slate-400">Enter the 6-digit code sent to your email.</p>
+        <p className="text-slate-400">Enter your 6-digit verification code.</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -95,6 +92,20 @@ const TwoFactorScreen: React.FC<Props> = ({ onLoginSuccess }) => {
           <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 flex items-center gap-3">
             <span className="material-symbols-outlined text-red-500 text-sm">error</span>
             <p className="text-red-500 text-xs font-bold">{error}</p>
+          </div>
+        )}
+
+        {notice && (
+          <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-4 flex items-center gap-3">
+            <span className="material-symbols-outlined text-green-500 text-sm">check_circle</span>
+            <p className="text-green-500 text-xs font-bold">{notice}</p>
+          </div>
+        )}
+
+        {devCode && (
+          <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4">
+            <p className="text-amber-300 text-xs font-bold uppercase tracking-widest mb-1">Development Code</p>
+            <p className="text-amber-200 text-base font-black tracking-[0.3em]">{devCode}</p>
           </div>
         )}
 

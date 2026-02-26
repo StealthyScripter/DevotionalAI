@@ -37,6 +37,27 @@ const clearDataCaches = () => {
   localStorage.removeItem(AUDIT_KEY);
 };
 
+const clearSessionState = () => {
+  localStorage.removeItem(SESSION_KEY);
+  clearDataCaches();
+};
+
+const readSession = (): AuthSession | null => {
+  const data = localStorage.getItem(SESSION_KEY);
+  if (!data) return null;
+
+  try {
+    return normalizeSession(JSON.parse(data));
+  } catch {
+    return null;
+  }
+};
+
+const clearChallengeState = () => {
+  sessionStorage.removeItem(CHALLENGE_KEY);
+  sessionStorage.removeItem(`${CHALLENGE_KEY}_dev_code`);
+};
+
 const apiRequest = async <T = any>(path: string, init: RequestInit = {}): Promise<T> => {
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
@@ -132,7 +153,7 @@ export const authService = {
     }
   },
 
-  signIn: async (email: string, password: string): Promise<{ success: boolean; user?: User; message?: string; requires2FA?: boolean }> => {
+  signIn: async (email: string, password: string): Promise<{ success: boolean; user?: User; message?: string; requires2FA?: boolean; devCode?: string }> => {
     try {
       const data = await apiRequest<any>('/api/auth/signin', {
         method: 'POST',
@@ -141,7 +162,10 @@ export const authService = {
 
       if (data.requires2FA && data.challengeId) {
         sessionStorage.setItem(CHALLENGE_KEY, data.challengeId);
-        return { success: true, requires2FA: true };
+        if (data.devCode) {
+          sessionStorage.setItem(`${CHALLENGE_KEY}_dev_code`, String(data.devCode));
+        }
+        return { success: true, requires2FA: true, devCode: data.devCode ? String(data.devCode) : undefined };
       }
 
       const session = normalizeSession(data.session);
@@ -179,9 +203,28 @@ export const authService = {
 
       authService.createSession(session.user, session.token, session.expiresAt);
       sessionStorage.removeItem(CHALLENGE_KEY);
+      sessionStorage.removeItem(`${CHALLENGE_KEY}_dev_code`);
       return { success: true };
     } catch (error: any) {
       return { success: false, message: error.message || 'Invalid code.' };
+    }
+  },
+
+  resend2FA: async (): Promise<{ success: boolean; message?: string; devCode?: string }> => {
+    const challengeId = sessionStorage.getItem(CHALLENGE_KEY);
+    if (!challengeId) return { success: false, message: 'Session expired.' };
+
+    try {
+      const data = await apiRequest<{ success: boolean; devCode?: string }>('/api/auth/resend-2fa', {
+        method: 'POST',
+        body: JSON.stringify({ challengeId }),
+      });
+      if (data.devCode) {
+        sessionStorage.setItem(`${CHALLENGE_KEY}_dev_code`, String(data.devCode));
+      }
+      return { success: true, devCode: data.devCode ? String(data.devCode) : undefined };
+    } catch (error: any) {
+      return { success: false, message: error.message || 'Failed to resend code.' };
     }
   },
 
@@ -208,17 +251,15 @@ export const authService = {
   },
 
   getSession: (): AuthSession | null => {
-    const data = localStorage.getItem(SESSION_KEY);
-    if (!data) return null;
-
-    const session = normalizeSession(JSON.parse(data));
+    const session = readSession();
     if (!session) {
+      // No active session is valid during sign-in/2FA; do not clear challenge state here.
       localStorage.removeItem(SESSION_KEY);
       return null;
     }
 
     if (Date.now() > session.expiresAt) {
-      authService.logout();
+      clearSessionState();
       return null;
     }
 
@@ -228,11 +269,12 @@ export const authService = {
   refreshSession: async (): Promise<AuthSession | null> => {
     const session = authService.getSession();
     if (!session) return null;
+    const refreshToken = session.token;
 
     try {
       const data = await apiRequest<any>('/api/auth/session', {
         method: 'GET',
-        headers: { Authorization: `Bearer ${session.token}` },
+        headers: { Authorization: `Bearer ${refreshToken}` },
       });
 
       const nextSession = normalizeSession(data.session);
@@ -241,16 +283,19 @@ export const authService = {
       localStorage.setItem(SESSION_KEY, JSON.stringify(nextSession));
       return nextSession;
     } catch {
-      authService.logout();
-      return null;
+      // Avoid clobbering a newer login/session due to an older refresh request failing.
+      const latest = readSession();
+      if (latest?.token === refreshToken) {
+        clearSessionState();
+      }
+      return readSession();
     }
   },
 
   logout: () => {
-    const session = authService.getSession();
-    localStorage.removeItem(SESSION_KEY);
-    sessionStorage.removeItem(CHALLENGE_KEY);
-    clearDataCaches();
+    const session = readSession();
+    clearSessionState();
+    clearChallengeState();
 
     if (session?.token) {
       fetch('/api/auth/logout', {

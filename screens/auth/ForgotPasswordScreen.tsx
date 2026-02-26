@@ -8,15 +8,22 @@ const ForgotPasswordScreen: React.FC = () => {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
     setLoading(true);
-    await authService.resetPasswordRequest(email);
+    const result = await authService.resetPasswordRequest(email);
+    if (!result.success) {
+      setError(result.message || 'Unable to send reset request.');
+      setLoading(false);
+      return;
+    }
     setTimeout(() => {
       setLoading(false);
       setSubmitted(true);
-    }, 1500);
+    }, 500);
   };
 
   return (
@@ -39,6 +46,13 @@ const ForgotPasswordScreen: React.FC = () => {
               placeholder="name@example.com"
             />
           </div>
+
+          {error && (
+            <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 flex items-center gap-3">
+              <span className="material-symbols-outlined text-red-500 text-sm">error</span>
+              <p className="text-red-500 text-xs font-bold">{error}</p>
+            </div>
+          )}
 
           <button 
             type="submit"

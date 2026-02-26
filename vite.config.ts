@@ -6,9 +6,11 @@ export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, '.', '');
     return {
       server: {
-        port: 5000,
-        host: '0.0.0.0',
-        allowedHosts: 'all',
+        port: 3000,
+        host: '127.0.0.1',
+        watch: {
+          ignored: ['**/backend/**'],
+        },
         proxy: {
           '/api': {
             target: 'http://localhost:8080',

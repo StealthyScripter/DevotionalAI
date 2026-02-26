@@ -1,0 +1,17 @@
+{
+  "name": "DevotionalAI",
+  "short_name": "DevotionalAI",
+  "description": "AI-powered Christian devotional app for daily scripture, spiritual guidance, sermons, and shareable faith content.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0f16",
+  "theme_color": "#102647",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
