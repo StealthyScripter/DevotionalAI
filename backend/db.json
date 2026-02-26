@@ -1,0 +1,108 @@
+{
+  "users": [
+    {
+      "id": "master-root-001",
+      "email": "admin@devotional.ai",
+      "passwordHash": "6fc1a07a7093977a49431998c6967090:17c3a328c7f68c3da0f65bb9bc355d7ac1eb358073df80854c19a698213a384202cabd99a382a2c5955dcb91b06ac2b460c6efdf50e64163bdd2c83854072c59",
+      "role": "admin",
+      "isVerified": true,
+      "is2FAEnabled": true,
+      "acceptedTermsAt": 1772138702112,
+      "createdAt": 1772138702112
+    }
+  ],
+  "sessions": [],
+  "challenges": [],
+  "blacklist": [],
+  "auditLogs": [],
+  "resetRequests": [],
+  "loginRate": {},
+  "saved": [],
+  "calendar": [],
+  "pipeline": [],
+  "published": [
+    {
+      "title": "Morning Mercy",
+      "bibleVerse": "Lamentations 3:22-23",
+      "devotionalMessage": "The mercy of God is new this morning. Start today with gratitude, not guilt.",
+      "practicalApplication": "Name three mercies you already received today.",
+      "callToAction": "Begin your day with thanksgiving prayer.",
+      "imageUrl": "https://images.unsplash.com/photo-1438232992991-995b7058bbb3?q=80&w=1200&auto=format&fit=crop",
+      "format": "Social Media Post",
+      "source": "manual",
+      "publishedAtDelta": 7,
+      "id": "seed-1",
+      "ownerId": "master-root-001",
+      "publishedAt": 1771533902112
+    },
+    {
+      "title": "Peace in the Storm",
+      "bibleVerse": "Mark 4:39",
+      "devotionalMessage": "Jesus still speaks peace over every storm and anxious thought.",
+      "practicalApplication": "Pause and pray before reacting to pressure today.",
+      "callToAction": "Trust God before outcomes.",
+      "videoUrl": "https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
+      "imageUrl": "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?q=80&w=1200&auto=format&fit=crop",
+      "format": "Video Script",
+      "source": "manual",
+      "publishedAtDelta": 6,
+      "id": "seed-2",
+      "ownerId": "master-root-001",
+      "publishedAt": 1771620302112
+    },
+    {
+      "title": "Still Waters Reflection",
+      "bibleVerse": "Psalm 23:2",
+      "devotionalMessage": "God leads your soul into stillness, not noise.",
+      "practicalApplication": "Take five quiet minutes with this verse.",
+      "callToAction": "Choose stillness over hurry.",
+      "imageUrl": "https://images.unsplash.com/photo-1444491741275-3747c53c99b4?q=80&w=1200&auto=format&fit=crop",
+      "format": "Image Concept",
+      "source": "manual",
+      "publishedAtDelta": 5,
+      "id": "seed-3",
+      "ownerId": "master-root-001",
+      "publishedAt": 1771706702112
+    },
+    {
+      "title": "Strength Text",
+      "bibleVerse": "Philippians 4:13",
+      "devotionalMessage": "You are not alone today. Grace is enough for this assignment.",
+      "practicalApplication": "Send this encouragement to one friend.",
+      "callToAction": "Speak life with your words.",
+      "format": "SMS Message",
+      "source": "manual",
+      "publishedAtDelta": 4,
+      "id": "seed-4",
+      "ownerId": "master-root-001",
+      "publishedAt": 1771793102112
+    },
+    {
+      "title": "A Short Word on Prayer",
+      "bibleVerse": "1 Thessalonians 5:17",
+      "devotionalMessage": "Prayer is the first response, not the last resort. Daily surrender forms lasting faith.",
+      "practicalApplication": "Pray once before each major task today.",
+      "callToAction": "Build a rhythm of first-response prayer.",
+      "format": "Mini-Sermon",
+      "source": "manual",
+      "publishedAtDelta": 3,
+      "id": "seed-5",
+      "ownerId": "master-root-001",
+      "publishedAt": 1771879502112
+    },
+    {
+      "title": "Built on the Rock",
+      "bibleVerse": "Matthew 7:24-25",
+      "devotionalMessage": "A durable life is built through repeated obedience. Storms reveal foundations, and faithful habits form spiritual resilience over time.",
+      "practicalApplication": "Create a weekly schedule for scripture and prayer.",
+      "callToAction": "Build your life on Christ with consistent obedience.",
+      "format": "Full-Length Sermon",
+      "source": "manual",
+      "imageUrl": "https://images.unsplash.com/photo-1508020963102-c6c723be5764?q=80&w=1200&auto=format&fit=crop",
+      "publishedAtDelta": 2,
+      "id": "seed-6",
+      "ownerId": "master-root-001",
+      "publishedAt": 1771965902112
+    }
+  ]
+}

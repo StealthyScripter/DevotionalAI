@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DB_PATH = resolve(__dirname, 'db.json');
-const PORT = Number(process.env.PORT || 8787);
+const PORT = Number(process.env.PORT || 8080);
 const TOKEN_SECRET = process.env.AUTH_TOKEN_SECRET || randomBytes(32).toString('hex');
 const MASTER_ADMIN_EMAIL = (process.env.MASTER_ADMIN_EMAIL || 'admin@devotional.ai').toLowerCase();
 const MASTER_ADMIN_PASSWORD = process.env.MASTER_ADMIN_PASSWORD || 'Devotional@2025&Home';
